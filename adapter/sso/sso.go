@@ -33,6 +33,7 @@ import (
 	"github.com/pigeonbox/core/pkg/auth"
 	"github.com/pigeonbox/core/pkg/logger"
 	"github.com/pigeonbox/core/pkg/middleware"
+	"github.com/pigeonbox/core/repo/db"
 	"github.com/pigeonbox/core/repo/db/dao"
 	"github.com/pigeonbox/core/repo/db/model"
 
@@ -161,7 +162,7 @@ func externalSub(id Identity) string { return "fnos:" + id.UID }
 
 // findOrCreate 按外部身份查/建本地用户(范式对齐 core OIDC 域)。
 func findOrCreate(ctx context.Context, id Identity) (*model.User, bool, error) {
-	repo := dao.NewUserRepository()
+	repo := dao.NewUserRepository(db.GetDB()) // 库式消费方显式取装配层句柄
 
 	if u, err := repo.GetByOIDCSub(ctx, externalSub(id)); err == nil && u != nil {
 		return u, false, nil
