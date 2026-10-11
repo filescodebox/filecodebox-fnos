@@ -8,7 +8,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@pigeonbox/contracts": "https://github.com/pigeonbox/contracts/releases/download/v0.10.0/pigeonbox-contracts-0.10.0.tgz",
+    "@pigeonbox/contracts": "https://github.com/pigeonbox/contracts/releases/download/v0.10.1/pigeonbox-contracts-0.10.1.tgz",
     "@pigeonbox/frontend-core": "https://github.com/pigeonbox/frontend-core/releases/download/v0.1.8/pigeonbox-frontend-core-0.1.8.tgz",
     "@trimjs/web-app": "^0.4.2"
   },
