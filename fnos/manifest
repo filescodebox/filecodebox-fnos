@@ -1,5 +1,5 @@
 appname=pigeonbox
-version=1.18.1
+version=1.19.0
 display_name=PigeonBox
 platform=all
 maintainer=zhangyi
@@ -13,6 +13,7 @@ checkport=true
 micro_app=true
 os_min_version=1.1.3100
 desc=文件快递柜——匿名口令分享文本/文件,支持拖拽上传、多云存储后端;飞牛深度融合(统一网关免登录/授权目录联动/文件管理器互通/主题语言跟随)。
+changelog=1.19.0: 发布列车 1.19.0(底层 core v0.18.0;前端 v1.19.0;详见 Release notes)。
 changelog=1.18.1: 发布列车 1.18.1(底层 core v0.17.0;前端 v1.18.1;详见 Release notes)。
 changelog=1.18.0: 发布列车 1.18.0(底层 core v0.17.0;前端 v1.18.0;详见 Release notes)。
 changelog=1.17.0: 发布列车 1.17.0(底层 core v0.16.2;前端 v1.17.0;详见 Release notes)。
