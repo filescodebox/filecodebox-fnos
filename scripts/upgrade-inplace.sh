@@ -17,8 +17,14 @@ mkdir -p "$BK"
 cp -a "$T/config" "$BK/config"
 cp -a "$T/configs" "$BK/configs"
 
-echo "[2/6] 停应用"
-bash /var/apps/pigeonbox/cmd/main stop 2>/dev/null || true
+# cmd/main 全程依赖框架注入的 TRIM_PKGVAR(数据根/.env/.admin_reset/日志路径),
+# 手工调用必须显式注入——否则数据根漂到包目录、重置标记不消费(2026-10-13 实锤)。
+# 优先从运行中进程 environ 取(多卷场景),否则默认 vol1。
+PKGVAR=$(tr "\0" "\n" < /proc/$(pgrep -f "target/bin/pigeonbox" | head -1)/environ 2>/dev/null | grep "^TRIM_PKGVAR=" | cut -d= -f2)
+PKGVAR="${PKGVAR:-/vol1/@appdata/pigeonbox}"
+
+echo "[2/6] 停应用(TRIM_PKGVAR=$PKGVAR)"
+TRIM_PKGVAR="$PKGVAR" bash /var/apps/pigeonbox/cmd/main stop 2>/dev/null || true
 sleep 2
 pkill -f "target/bin/pigeonbox" 2>/dev/null || true
 sleep 1
@@ -37,8 +43,8 @@ cp -a "$BK/configs/." "$T/configs/"
 echo "[5/6] 属主归位"
 chown -R pigeonbox:pigeonbox "$T"
 
-echo "[6/6] 启应用(看门狗后台,勿占管道)"
-nohup bash /var/apps/pigeonbox/cmd/main start >/dev/null 2>&1 &
+echo "[6/6] 启应用(TRIM_PKGVAR=$PKGVAR,看门狗后台,勿占管道)"
+nohup env TRIM_PKGVAR="$PKGVAR" bash /var/apps/pigeonbox/cmd/main start >/dev/null 2>&1 &
 for i in $(seq 1 30); do pgrep -f "target/bin/pigeonbox" >/dev/null && break; sleep 1; done
 pgrep -f "target/bin/pigeonbox" >/dev/null && echo "✓ 进程已起" || { echo "✗ 启动失败"; exit 1; }
 echo "── 验真: curl -s http://127.0.0.1:12345/version.txt"
