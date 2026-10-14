@@ -64,7 +64,7 @@ fetch_p2pc() {
 }
 
 echo "==> 随包 p2pc(设备直传)"
-P2PC_REF=$(grep '^P2PC_REF=' "$ROOT/DEPS.env" 2>/dev/null | cut -d= -f2 | tr -d ' \r')
+P2PC_REF=$(sed -n 's/^P2PC_REF=//p' "$ROOT/DEPS.env" | tr -d ' \r')
 if [ -n "$P2PC_REF" ]; then
   for arch in amd64 arm64; do
     case "$arch" in
