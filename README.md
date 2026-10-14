@@ -15,7 +15,8 @@
 | **一键安装** | `fnpack` 标准应用包，应用中心托管启停/升级 | ✅ fnpack 1.2.3 打包通过 |
 | **业务全功能** | 单进程库式调用 [core](https://github.com/pigeonbox/core) `bootstrap.Bootstrap()`，文本/文件分享、取件码、多云存储全部可用 | ✅ |
 | **数据落 NAS** | 上传文件 + SQLite 全部落在用户可见的共享目录，文件管理器可直接查看/备份 | ✅ |
-| **开箱即用** | JWT 密钥自动生成并持久化；默认免 Redis（core v0.14.0 单机内存模式，取件码映射存进程内、重启/升级失效）；安装向导设管理员密码与服务端口 | ✅ |
+| **开箱即用** | JWT 密钥自动生成并持久化；默认免 Redis（自 core v0.14.0 起单机内存模式，取件码映射存进程内、重启/升级失效）；安装向导设管理员密码与服务端口 | ✅ |
+| **设备直传** | fpk 随包 p2pc 双架构二进制（DEPS.env `P2PC_REF` 钉版+sha256 校验），服务脚本自动注入 `PB_P2PC_PATH`；admin「系统配置→P2P」分区热启停联邦与设备直传 | ✅ |
 | **降级模式** | 非 fnOS 环境（裸进程开发调试）自动降级，飞牛集成关闭、业务完整运行 | ✅ |
 | **SSO 免登录** | 统一网关 `app.sock` X-Trim-* 可信用户头免登录，飞牛账号映射为本系统用户 | ✅ v1.14.6 真机验证 |
 | **授权目录联动** | 官方后端 API（trim.file.*）授权目录、文件管理器互通 | ✅ v1.14.6 |
@@ -71,7 +72,7 @@ cd fnos && fnpack build     # 产物 pigeonbox.fpk
 
 `fnos/` 目录即应用包定义，**已对齐飞牛官方规范**（manifest / app/ui 入口+图标 / cmd 生命周期脚本 / wizard 向导 / config 资源与权限）。CI 每次推送都会跑 `fnpack build` 校验并产出 fpk 构件。
 
-注意：发版版本真相源=仓根 `VERSION` 文件(由 hub 发布列车 `scripts/release-train.sh bump` 统一维护)，`fnos/manifest` 的 `version` 与之同步,勿单手改一处。
+注意：发版版本真相源=仓根 `VERSION` 文件（由 hub 发布列车 v2 统一维护：hub `make train-bump` 触发 `release/trainctl` 状态机写入），`fnos/manifest` 的 `version` 与之同步，勿单手改一处。
 
 ## 上架官方应用中心
 
@@ -129,6 +130,7 @@ fnos/
 
 | 本仓 | core | 说明 |
 |------|------|------|
+| v1.21.0 | core v0.19.0 / frontend-core v0.4.0 / p2pc v0.6.2 | 版本随产品主版本（hub 发布列车同号）；fpk 随包 p2pc 双架构二进制，服务脚本自动注入 `PB_P2PC_PATH`，设备直传开箱可用 |
 | v1.14.x | v0.14.4 → v0.14.9 | 版本随产品主版本（hub 发布列车同号）；v1.14.3=配置面板（管理员密码/端口）+看门狗自愈+env 前缀 PB_ 更名；**v1.14.6=飞牛官方开放平台深度融合**（统一网关 SSO 免登录/授权目录联动/文件管理器互通/主题语言跟随，真机验证收官） |
 | v1.2.7 | v0.14.2 | 修复 fpk 真机安装失败（目录准备改尽力而为 + entrypoint 兜底归属）；镜像内嵌前端（桌面图标打开即用）；core 补文件/分片上传分享链接 0.0.0.0 漏网路径 |
 | v1.2.6 | v0.14.1 | 跟随 core v0.14.1（env-only 缺 notifies 表修复；分享链接 0.0.0.0 修复） |
@@ -140,6 +142,8 @@ fnos/
 | v0.2.x | v0.5.0 → v0.7.6 | 上传治理/多云存储/P0 修复；fnpack 规范化 + 内置 Redis + 向导；0.2.6 升 core v0.7.6 |
 
 Docker 镜像：2026-10-09 起**停止发布**（本仓只发原生 fpk）；`ghcr.io/pigeonbox/fnos` 冻结在 v1.14.6，更早 `pigeonbox-fnos` 冻结在 v0.2.6 / v0.2.1。
+
+> 完整版本沿革见 hub [release/train.yaml](https://github.com/pigeonbox/pigeonbox/blob/main/release/train.yaml) 与各 [Release](https://github.com/pigeonbox/pigeonbox/releases)，上表仅记关键节点。
 
 ## 路线图
 
