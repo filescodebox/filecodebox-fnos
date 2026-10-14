@@ -39,6 +39,14 @@ FPK_SRC=./fnos/pigeonbox.fpk ./scripts/assemble-store-package.sh   # 用本地�
 | `screenshots/` 8 张 | 全部 1366×900 真实 UI,取自 docs-site 截图流水线(发送×2/分享成功/首页取件/密码保护/文本内容/多文件下载/管理控制台) |
 | `提交说明.md` | 给审核者看的应用简介/功能亮点/测试情况/更新承诺 |
 
+### manifest `desc`(= 应用中心「应用介绍」)编写规则
+
+应用介绍直接取 fpk 内 manifest `desc`,前端经 filterXSS 白名单渲染为 HTML(允许 `<strong>`/`<br>`/`<p>`/`<ul>`/`<a>`/`<img>`,`class`/`style` 属性被丢弃;正文换行会转成 `<br/>`,展示最多 8 行后折叠展开)。fnpack 的 manifest 是 INI 风格,写入有三个硬约束(2026-10-13 实测):
+
+- **`;` 与 `#` 会被当注释砍掉**:`desc=前半句;后半句` 打包后 desc 只剩前半句,余下成为独立注释行——线上介绍曾长期只剩半句就是这个原因;
+- **不能换行**:第二行起会被解析成新的 key(同理,多条 `changelog=` 只有**最后一条**存活);
+- 所以长介绍必须写成**单行 HTML**: `desc=<strong>…</strong>…。<br/>…。`(回环验证:HTML 标签、`:`、`《》`、`、` 均原样保留)。
+
 截图若需更新:重跑 docs-site 截图流水线(hub 仓,2026-10-08 已对齐新 UI),再跑本脚本;`SHOTS_DIR` 可指向其他目录。
 
 ## 三、发布前测试基线(官方要求)

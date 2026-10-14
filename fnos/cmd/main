@@ -29,6 +29,13 @@ case "$ARCH" in
     ;;
 esac
 
+# p2pc 设备直传随包(2026-10-14 P2b):按架构指给 supervisor;包内无此文件时
+# 指向不存在路径,core 探测失败优雅降级(直传页显示引导态)。
+case "$ARCH" in
+  x86_64)          export PB_P2PC_PATH="$APP_ROOT/target/bin/p2pc-linux-amd64" ;;
+  aarch64|arm64)   export PB_P2PC_PATH="$APP_ROOT/target/bin/p2pc-linux-arm64" ;;
+esac
+
 log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "${LOG_FILE}" 2>/dev/null || true
 }
@@ -41,9 +48,12 @@ prepare_env() {
     export PB_DATABASE_DB_NAME="${TRIM_PKGVAR}/data/fileCodeBox.db"
     export PB_STORAGE_PATH="${TRIM_PKGVAR}/data/uploads"
     export PB_SERVER_HOST=0.0.0.0
-    # 端口:向导/配置面板注入的 PB_SERVER_PORT 优先(框架在进程启动前注入 env),
-    # 缺省回退 12345——勿无条件覆盖,否则向导改端口永远不生效。
-    export PB_SERVER_PORT="${PB_SERVER_PORT:-12345}"
+    # 端口优先级=框架注入 > .env > 12345 默认——勿无条件覆盖,否则向导改端口永远不生效。
+    # 先记住框架注入值:.env 由向导生成,端口留空时会写 PB_SERVER_PORT="",下方 source
+    # 会把注入值/默认值一并覆盖成空串(真机 10-13 实锤:server 侧空串按缺省监听 12345
+    # 无感,但看门狗 curl http://127.0.0.1:/ping 恒失败 → 每 90s 强杀重启循环),
+    # 故须在 source 之后按 注入值 > 12345 回退。
+    local framework_port="${PB_SERVER_PORT:-}"
     # 统一网关 socket(fnOS 原生环境自动启用):进程监听 ${TRIM_APPDEST}/app.sock,
     # 框架网关校验 NAS 登录态后转发并注入用户头——SSO 免登录/授权目录联动的前提。
     if [ -n "${TRIM_APPDEST:-}" ]; then
@@ -62,6 +72,10 @@ prepare_env() {
         # shellcheck disable=SC1090
         . "$env_file"
         set +a
+    fi
+    # .env 空串回退(source 可能已把 PB_SERVER_PORT 覆盖为 "",看门狗拼 URL 会炸)
+    if [ -z "${PB_SERVER_PORT:-}" ]; then
+        export PB_SERVER_PORT="${framework_port:-12345}"
     fi
     mkdir -p "${PB_DATA_PATH}"
 }

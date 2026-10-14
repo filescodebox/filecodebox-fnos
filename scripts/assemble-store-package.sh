@@ -49,6 +49,8 @@ tar -xzf "$FPK_SRC" -C "$WORK" manifest ICON.PNG ICON_256.PNG
 FPK_DESC="$(grep -E '^desc[[:space:]]*=' "$WORK/manifest" | head -1 | sed 's/^desc[[:space:]]*=[[:space:]]*//' || true)"
 FPK_VER="$(grep -E '^version[[:space:]]*=' "$WORK/manifest" | head -1 | sed 's/^version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' || true)"
 [ -n "$FPK_DESC" ] || { log "✗ fpk 内 manifest 无 desc 字段"; exit 1; }
+# 应用介绍可为富文本(应用中心按 HTML 白名单渲染),README 表格只留纯文本
+FPK_DESC_PLAIN="$(printf '%s' "$FPK_DESC" | sed 's/<[^>]*>//g')"
 if [ "$FPK_VER" != "$VERSION" ]; then
   log "⚠ fpk 内版本($FPK_VER)与请求版本($VERSION)不一致,以 fpk 为准继续"
   VERSION="$FPK_VER"
@@ -99,7 +101,7 @@ cat > "$PKG_DIR/README.md" <<EOF
 | 包名 | pigeonbox |
 | 版本 | ${VERSION} |
 | 应用类型 | thirdparty 原生进程模式(免 Docker,包内自带双架构静态二进制+内嵌前端) |
-| 一句话简介 | ${FPK_DESC} |
+| 应用介绍(与应用中心同款,已去 HTML 标签) | ${FPK_DESC_PLAIN} |
 | 开源地址 | https://github.com/pigeonbox(Apache-2.0,全生态开源) |
 | 维护者 | zhangyi(https://github.com/zy84338719) |
 | 联系方式 | <提交时补充微信号/QQ> |
