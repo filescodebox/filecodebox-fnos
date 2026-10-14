@@ -55,7 +55,7 @@ fetch_p2pc() {
   if [ -z "$ok" ]; then
     echo "✗ p2pc ${asset}@${ref} 下载失败(curl/gh 均不可用或失败)"; rm -rf "$tmp"; return 1
   fi
-  if !(cd "$tmp" && grep " ${asset}\$" checksums.txt | shasum -a 256 -c - >/dev/null); then
+  if ! (cd "$tmp" && grep " ${asset}\$" checksums.txt | shasum -a 256 -c - >/dev/null); then
     echo "✗ p2pc ${asset}@${ref} sha256 校验失败"; rm -rf "$tmp"; return 1
   fi
   install -m 0755 "$tmp/${asset}" "$dest"
