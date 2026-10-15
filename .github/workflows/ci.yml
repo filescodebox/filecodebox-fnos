@@ -48,7 +48,7 @@ jobs:
           chmod +x fnpack
       - name: fnpack build
         run: cd fnos && ../fnpack build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pigeonbox-fpk
           path: fnos/pigeonbox.fpk
