@@ -8,7 +8,7 @@ require (
 	github.com/cloudwego/hertz v0.9.6
 	github.com/glebarez/sqlite v1.11.0
 	github.com/pigeonbox/contracts v0.15.1
-	github.com/pigeonbox/core v0.22.1
+	github.com/pigeonbox/core v0.23.0
 	github.com/pigeonbox/kit v0.3.1
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.27.0
