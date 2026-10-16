@@ -46,6 +46,9 @@ func LoadConfig() Config {
 func Mount(h *server.Hertz, cfg Config) func(ctx context.Context) error {
 	group := h.Group("/api/fnos")
 
+	// PigeonBeam 入口(A2):Box 会话守门的 /beam 跳转,独立于 fnOS 网关配置。
+	MountBeam(h)
+
 	// 探测端点:前端据此渲染飞牛联动 UI(任何环境都可用)。
 	group.GET("/capabilities", func(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusOK, map[string]any{
