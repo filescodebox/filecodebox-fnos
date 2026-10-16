@@ -5,11 +5,11 @@ go 1.26.5
 toolchain go1.26.9
 
 require (
-	github.com/cloudwego/hertz v0.9.6
+	github.com/cloudwego/hertz v0.10.6
 	github.com/glebarez/sqlite v1.11.0
+	github.com/oekit/core v0.5.0
 	github.com/pigeonbox/contracts v0.15.1
 	github.com/pigeonbox/core v0.23.0
-	github.com/pigeonbox/kit v0.3.1
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.27.0
 	gorm.io/gorm v1.25.12
@@ -23,7 +23,8 @@ require (
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
-	github.com/cloudwego/netpoll v0.6.4 // indirect
+	github.com/cloudwego/gopkg v0.2.0 // indirect
+	github.com/cloudwego/netpoll v0.7.5 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -49,9 +50,9 @@ require (
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.3.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nyaruka/phonenumbers v1.2.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/pigeonbox/kit v0.3.1 // indirect
 	github.com/pkg/sftp v1.13.11 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
