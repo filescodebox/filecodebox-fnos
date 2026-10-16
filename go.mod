@@ -8,8 +8,8 @@ require (
 	github.com/cloudwego/hertz v0.10.6
 	github.com/glebarez/sqlite v1.11.0
 	github.com/oekit/core v0.5.0
-	github.com/pigeonbox/contracts v0.15.1
-	github.com/pigeonbox/core v0.23.0
+	github.com/pigeonbox/contracts v0.16.0
+	github.com/pigeonbox/core v0.24.0
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.27.0
 	gorm.io/gorm v1.25.12
