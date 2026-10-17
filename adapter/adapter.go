@@ -21,6 +21,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	"github.com/oekit/concurrency/async"
 
 	"github.com/pigeonbox/core/pkg/logger"
 	"go.uber.org/zap"
@@ -87,7 +88,8 @@ func Mount(h *server.Hertz, cfg Config) func(ctx context.Context) error {
 			zap.String("socket", cfg.SocketPath), zap.Error(err))
 		return nil
 	}
-	go gw.Serve()
+	// GoSafe:网关协程 panic 走日志面不断进程——深度集成可降级,业务主链路在 h.Spin
+	async.GoSafe(gw.Serve)
 
 	// SSO:网关就绪才有可信用户头。
 	sso.Mount(group, gw)
