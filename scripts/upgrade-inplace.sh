@@ -43,8 +43,14 @@ cp -a "$BK/configs/." "$T/configs/"
 echo "[5/6] 属主归位"
 chown -R pigeonbox:pigeonbox "$T"
 
+echo "[5.5/6] 数据目录属主归位(root 实例曾写花 app.log→框架起不来,2.1.0 真机实锤)"
+chown -R pigeonbox:pigeonbox "$PKGVAR" 2>/dev/null || true
+
 echo "[6/6] 启应用(TRIM_PKGVAR=$PKGVAR,看门狗后台,勿占管道)"
-nohup env TRIM_PKGVAR="$PKGVAR" bash /var/apps/pigeonbox/cmd/main start >/dev/null 2>&1 &
+# 必须以应用用户启动:sudo 跑本脚本时直接 start 会拉起 root 实例,占端口+写花
+# 数据目录,fnOS 框架随后「端口被占用」拒启(2026-10-19 真机实锤;对齐框架
+# appcenter-cli start 的应用用户语义)。
+nohup sudo -u pigeonbox env TRIM_PKGVAR="$PKGVAR" bash /var/apps/pigeonbox/cmd/main start >/dev/null 2>&1 &
 for i in $(seq 1 30); do pgrep -f "target/bin/pigeonbox" >/dev/null && break; sleep 1; done
 pgrep -f "target/bin/pigeonbox" >/dev/null && echo "✓ 进程已起" || { echo "✗ 启动失败"; exit 1; }
 echo "── 验真: curl -s http://127.0.0.1:12345/version.txt"
