@@ -10,8 +10,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.26"
           cache-dependency-path: go.sum
@@ -30,12 +30,12 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.26"
           cache-dependency-path: go.sum
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
       - name: web 类型检查(2026-10-09 拆仓:web/ 自包含,依赖 frontend-core tgz)
@@ -44,11 +44,17 @@ jobs:
         run: ./scripts/build-native.sh
       - name: 下载 fnpack(官方 CLI)
         run: |
+          # 供应链:fnpack 是产出 .fpk 的打包器,厂商 CDN 上的二进制必须钉摘要。
+          # 摘要取自:
+          #   URL:    https://static2.fnnas.com/fnpack/fnpack-1.2.3-linux-amd64
+          #   采集日: 2026-10-21(厂商 Last-Modified: Fri, 03 Jul 2026 06:30:35 GMT)
+          # 与 release.yml 同源同摘要——CI 验的打包器与发版用的必须是同一个。
           curl -fsSL --retry 3 -o fnpack https://static2.fnnas.com/fnpack/fnpack-1.2.3-linux-amd64
+          echo "54b97fa7b70968c4d05c79840f5daeff508957d0bb2062fdb0376d00d9615c93  fnpack" | sha256sum -c -
           chmod +x fnpack
       - name: fnpack build
         run: cd fnos && ../fnpack build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pigeonbox-fpk
           path: fnos/pigeonbox.fpk
