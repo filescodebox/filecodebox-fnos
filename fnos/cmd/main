@@ -88,6 +88,17 @@ prepare_env() {
     if [ -z "${PB_SERVER_PORT:-}" ]; then
         export PB_SERVER_PORT="${framework_port:-12345}"
     fi
+    # 首启逃逸门(2026-10-22 全生态统一): 未设管理员密码时不播种弱口令
+    # admin/admin123, 改走 /setup 首启向导(浏览器里建号)。
+    # 为什么必须在这里:fnos 的 server.mode=release ⇒ core 的生产门禁生效,
+    # 「库中无 admin + 无 PB_ADMIN_PASSWORD」会直接 ErrInsecureDefaultAdmin
+    # 拒启(应用起不来)。而向导文案说的是「留空=默认密码 admin123」——
+    # 用户照做留空 → 进程直接退出,装完起不来(2026-10-22 审计 F2)。
+    # 与 compose 入口脚本 / qnap pigeonbox.sh / openwrt init 同款条件。
+    if [ -z "${PB_ADMIN_PASSWORD:-}" ] && [ "${PB_DISABLE_DEFAULT_ADMIN:-}" != "true" ]; then
+        export PB_DISABLE_DEFAULT_ADMIN=true
+        log_msg "no PB_ADMIN_PASSWORD set: switched to /setup first-run wizard mode (open the site to create the admin)"
+    fi
     mkdir -p "${PB_DATA_PATH}"
 }
 
