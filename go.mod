@@ -9,8 +9,8 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/oekit/concurrency v0.19.0
 	github.com/oekit/core v0.11.0
-	github.com/pigeonbox/contracts v0.18.1
-	github.com/pigeonbox/core v0.31.1
+	github.com/pigeonbox/contracts v0.18.4
+	github.com/pigeonbox/core v0.31.2
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.27.0
 	gorm.io/gorm v1.25.12
