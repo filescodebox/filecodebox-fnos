@@ -10,7 +10,7 @@ require (
 	github.com/oekit/concurrency v0.19.0
 	github.com/oekit/core v0.11.0
 	github.com/pigeonbox/contracts v0.18.5
-	github.com/pigeonbox/core v0.31.5
+	github.com/pigeonbox/core v0.31.7
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.27.0
 	gorm.io/gorm v1.25.12
