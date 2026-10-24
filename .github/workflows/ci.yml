@@ -15,13 +15,24 @@ jobs:
         with:
           go-version: "1.26"
           cache-dependency-path: go.sum
+      # gofmt 门禁（2026-10-24 补）：此前 fnos/openwrt/qnap 三个 Go 仓的 CI
+      # **都没有 gofmt 步**（core/server/p2p/contracts 早已有）⇒ 格式漂移无人拦
+      # ⇒ 漂移会一路合进 main。**发现即红，修法是 gofmt -w**，不设豁免。
+      - name: Gofmt
+        if: always()
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      # 门禁步骤**互不阻塞**（if: always()）：此前是串行链 ⇒ 前一步失败 ⇒ 后面
+      # 全部 skipped ⇒ 那些门禁等于没跑（core 仓实录：gofmt 步先红 ⇒ race/lint/
+      # 架构棘轮全被 skip ⇒ 真实 DATA RACE 藏在 main 上活了两列车）。
       - name: Build & Test
+        if: always()
         run: |
           go build ./...
           go vet ./...
           go test -race ./...
       # 依赖漏洞门禁（govulncheck）：可达漏洞即红；修复策略=升依赖地板，不许注释绕过
       - name: Govulncheck
+        if: always()
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
   # 应用包打包校验:fnos/ 目录结构/manifest/生命周期脚本任何回退都会在此失败,
@@ -38,9 +49,12 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
+      # npm ci 走网络（拉 frontend-core tgz）⇒ 偶发失败 ⇒ 此前会**连带挡掉**后面的
+      # 原生产物构建 ⇒ 连打包产物都没了。加 --fetch-retries 让它自愈重试。
       - name: web 类型检查(2026-10-09 拆仓:web/ 自包含,依赖 frontend-core tgz)
-        run: cd web && npm ci --no-audit --no-fund && npm run typecheck
+        run: cd web && npm ci --no-audit --no-fund --fetch-retries=3 --fetch-retry-mintimeout=20000 && npm run typecheck
       - name: 原生产物构建(双架构二进制+前端)
+        if: always()
         run: ./scripts/build-native.sh
       - name: 下载 fnpack(官方 CLI)
         run: |
