@@ -1,10 +1,11 @@
 // Package trimapi 是飞牛官方后端开放 API 的统一 client。
 //
 // 官方契约(developer.fnnas.com/api/calling「调用方式」):
-//   POST /api/v1/trimapp  (经 Unix Socket /var/run/trim_open_gateway_apiscope.socket)
-//   Authorization: Bearer <TRIM_API_TOKEN>
-//   {"reqId":"...","req":"trim.file.xxx","appName":"...","data":{...}}
-//   → {"reqId":"...","code":0,"msg":"","data":{...}}
+//
+//	POST /api/v1/trimapp  (经 Unix Socket /var/run/trim_open_gateway_apiscope.socket)
+//	Authorization: Bearer <TRIM_API_TOKEN>
+//	{"reqId":"...","req":"trim.file.xxx","appName":"...","data":{...}}
+//	→ {"reqId":"...","code":0,"msg":"","data":{...}}
 //
 // 安全边界:token 由框架在拉起应用脚本时注入 TRIM_API_TOKEN,官方明确要求
 // 每次调用时从进程环境现读——不持久化、不缓存、不下发前端。本 client 严格遵循。

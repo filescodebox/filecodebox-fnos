@@ -5,7 +5,9 @@
 // 并注入可信用户头(X-Trim-Userid / X-Trim-Isadmin / X-Trim-Username)。
 //
 // 本包在该 socket 上运行一个 stripPrefix 反向代理:
-//   /app/pigeonbox/user/login  →(剥前缀)→  127.0.0.1:PORT/user/login
+//
+//	/app/pigeonbox/user/login  →(剥前缀)→  127.0.0.1:PORT/user/login
+//
 // 业务与前端资源全部复用既有 Hertz 服务,前端以任意前缀部署都零路由改动。
 //
 // 防伪造:直连业务 TCP 端口的请求同样能到达 Hertz,若仅凭"存在 X-Trim-* 头"

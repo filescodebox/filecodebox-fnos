@@ -2,14 +2,16 @@
 //
 // 官方模型(developer.fnnas.com/docs/core-concepts/gateway-registration):
 // 统一网关在转发请求前完成 NAS 登录态校验,并以可信头注入当前用户——
-//   X-Trim-Userid / X-Trim-Isadmin / X-Trim-Username
+//
+//	X-Trim-Userid / X-Trim-Isadmin / X-Trim-Username
+//
 // 故无需任何"ticket 换取"式 API 调用:请求到达即身份已立。
 //
 // 身份映射(镜像 core OIDC 域范式,见 app/oidc/service.go):
-//   1. 按 fnos:<uid> 精确匹配(复用 users.oidc_sub 外部身份键,值域加前缀隔离)
-//   2. 未命中 → 以 "fnos-<username>" 去重建号(role=user,随机不可登录——
-//      登录唯一入口是网关,与 OIDC 随机密码同语义)
-//   3. 签发本系统 JWT + HttpOnly 会话 Cookie,前端零改动进入登录态
+//  1. 按 fnos:<uid> 精确匹配(复用 users.oidc_sub 外部身份键,值域加前缀隔离)
+//  2. 未命中 → 以 "fnos-<username>" 去重建号(role=user,随机不可登录——
+//     登录唯一入口是网关,与 OIDC 随机密码同语义)
+//  3. 签发本系统 JWT + HttpOnly 会话 Cookie,前端零改动进入登录态
 //
 // 安全:本端点仅接受经 gateway.Server 反代转发的请求(启动期随机 nonce 比对),
 // 直连业务端口的伪造头一概 403;飞牛管理员(X-Trim-Isadmin)不映射为

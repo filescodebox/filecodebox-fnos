@@ -1,15 +1,17 @@
 // Package adapter 装配飞牛(fnOS)深度集成。
 //
 // 2026-10-09 按 fnOS 官方开放平台(developer.fnnas.com)真实现,接入模型:
-//   统一网关 gateway   — ${TRIM_APPDEST}/app.sock 反代(stripPrefix → 业务端口),
-//                        请求带 NAS 登录态用户头(官网「统一网关」);
-//   SSO 免登录 sso     — 网关可信头 → 本地用户映射 + 会话签发(POST /api/fnos/login);
-//   授权目录 storage   — 官方后端 API trim.file.* (GET /api/fnos/shares);
-//   后端 API client    — internal/trimapi(Unix socket + TRIM_API_TOKEN)。
+//
+//	统一网关 gateway   — ${TRIM_APPDEST}/app.sock 反代(stripPrefix → 业务端口),
+//	                     请求带 NAS 登录态用户头(官网「统一网关」);
+//	SSO 免登录 sso     — 网关可信头 → 本地用户映射 + 会话签发(POST /api/fnos/login);
+//	授权目录 storage   — 官方后端 API trim.file.* (GET /api/fnos/shares);
+//	后端 API client    — internal/trimapi(Unix socket + TRIM_API_TOKEN)。
 //
 // 官方一期未开放的能力(诚实缺席,不造假):
-//   通知中心 / 内网穿透 — 待官方开放后另行接入;此前旧桩(FNOS_APPID/SECRET
-//   凭证模型)与真实平台不符,已整体移除。
+//
+//	通知中心 / 内网穿透 — 待官方开放后另行接入;此前旧桩(FNOS_APPID/SECRET
+//	凭证模型)与真实平台不符,已整体移除。
 //
 // 降级语义:非 fnOS 环境(裸进程开发调试,无 TRIM_* 变量)一切自动关闭,
 // /api/fnos/capabilities 如实回报;PigeonBox 业务不受任何影响。

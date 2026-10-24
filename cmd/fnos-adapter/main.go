@@ -19,10 +19,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/oekit/core/version"
 	"github.com/pigeonbox/core/bootstrap"
 	"github.com/pigeonbox/core/pkg/logger"
 	"github.com/pigeonbox/fnos/adapter"
-	"github.com/oekit/core/version"
 
 	"go.uber.org/zap"
 )

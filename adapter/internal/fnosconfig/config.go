@@ -5,11 +5,13 @@
 //
 // 2026-10-09 模型重写:官方开放平台( developer.fnnas.com )不存在
 // "open.fnnas.com + appid/secret" 式 REST 凭证体系,真实接入模型为——
-//   统一网关:入口声明 gatewayPrefix+gatewaySocket,框架校验 NAS 登录态后
-//            把请求转发到应用监听的 Unix Socket,并注入 X-Trim-* 可信用户头;
-//   后端 API:应用经 /var/run/trim_open_gateway_apiscope.socket +
-//            TRIM_API_TOKEN(框架在拉起应用脚本时注入 env)调用 trim.* 能力;
-//   前端 JS SDK:@trimjs/web-app(需 manifest micro_app=true)。
+//
+//	统一网关:入口声明 gatewayPrefix+gatewaySocket,框架校验 NAS 登录态后
+//	         把请求转发到应用监听的 Unix Socket,并注入 X-Trim-* 可信用户头;
+//	后端 API:应用经 /var/run/trim_open_gateway_apiscope.socket +
+//	         TRIM_API_TOKEN(框架在拉起应用脚本时注入 env)调用 trim.* 能力;
+//	前端 JS SDK:@trimjs/web-app(需 manifest micro_app=true)。
+//
 // 故启用探测全部来自 TRIM_* 运行环境,不再需要用户手工填凭证。
 package fnosconfig
 
