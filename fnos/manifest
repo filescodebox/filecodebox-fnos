@@ -1,5 +1,5 @@
 appname=pigeonbox
-version=3.3.35
+version=3.3.36
 display_name=PigeonBox
 platform=all
 maintainer=zhangyi
@@ -13,6 +13,7 @@ checkport=true
 micro_app=true
 os_min_version=1.1.3100
 desc=<strong>PigeonBox(文件快递柜)</strong>——匿名口令分享文本与文件:粘贴文本或拖拽上传,即得 6 位取件码与二维码,对方打开链接免注册取件,支持取件密码与到期自动销毁。<br/>数据全部落在你的 NAS 共享目录,文件管理器可直接查看与备份,存储可切换本地磁盘、S3、OSS、COS 等 14 种后端。<br/>深度适配飞牛 fnOS:应用中心一键启停,统一网关<strong>免登录</strong>,授权目录联动、文件管理器互通、主题与语言跟随系统。<br/>内置管理控制台(用户、存储、公告、回收站与审计日志),默认关闭开放注册、生产模式强制管理员密码,页面明示遵守《网络安全法》,Apache-2.0 全开源可审计。
+changelog=3.3.36: 发布列车 3.3.36(底层 core v0.32.14;前端 v3.3.36;详见 Release notes)。
 changelog=3.3.35: 发布列车 3.3.35(底层 core v0.32.14;前端 v3.3.35;详见 Release notes)。
 changelog=3.3.34: 发布列车 3.3.34(底层 core v0.32.13;前端 v3.3.34;详见 Release notes)。
 changelog=3.3.33: 发布列车 3.3.33(底层 core v0.32.12;前端 v3.3.33;详见 Release notes)。
