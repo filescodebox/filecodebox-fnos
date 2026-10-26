@@ -9,11 +9,16 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # 显式 auto：覆盖 setup-go v7 强制的 GOTOOLCHAIN=local ⇒ 将来 go.mod 的
+      # toolchain 地板再抬时，Go 能自动拉取而不是构建失败（2026-10-26 实测：
+      # 浮动 go-version 拿到低于地板的 patch ⇒ 直接构建失败，门禁变噪声）。
+      GOTOOLCHAIN: auto
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: "1.26"
+          go-version: "1.26.10"
           cache-dependency-path: go.sum
       # gofmt 门禁（2026-10-24 补）：此前 fnos/openwrt/qnap 三个 Go 仓的 CI
       # **都没有 gofmt 步**（core/server/p2p/contracts 早已有）⇒ 格式漂移无人拦
@@ -40,11 +45,16 @@ jobs:
   # v1.2.7 起 fpk 为原生模式:打包前须产出双架构静态二进制+前端(app/bin|www)。
   package:
     runs-on: ubuntu-latest
+    env:
+      # 显式 auto：覆盖 setup-go v7 强制的 GOTOOLCHAIN=local ⇒ 将来 go.mod 的
+      # toolchain 地板再抬时，Go 能自动拉取而不是构建失败（2026-10-26 实测：
+      # 浮动 go-version 拿到低于地板的 patch ⇒ 直接构建失败，门禁变噪声）。
+      GOTOOLCHAIN: auto
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: "1.26"
+          go-version: "1.26.10"
           cache-dependency-path: go.sum
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -68,6 +78,12 @@ jobs:
           chmod +x fnpack
       - name: fnpack build
         run: cd fnos && ../fnpack build
+      # 2026-10-26 审计 P2：`make fpack` 不重建任何产物 ⇒ 会把上一次的本地产物
+      # （陈旧二进制 + 陈旧前端）打进一个「能装」的 fpk ⇒ 包内版本号对、功能旧。
+      # ⇒ 打包后校验：fpk 内嵌二进制的版本戳 == VERSION、前端 version.txt ==
+      # web/package.json ⇒ 陈旧包直接红（负对照：把 VERSION 改成 9.9.9 即红）。
+      - name: fpack 版本戳对账（防陈旧产物进包）
+        run: bash scripts/check-fpack-version.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pigeonbox-fpk

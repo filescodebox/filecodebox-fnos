@@ -94,6 +94,28 @@ else
 fi
 
 
+# ── 版本戳自证：二进制内嵌版本必须 == 本次构建的 VERSION（构建即断言）──────
+# 为什么加这条（2026-10-26 审计 P2）：`make fpack` 曾**不重建任何产物** ⇒
+# 工作区里 fnos/app/bin/ 的陈旧二进制会被打进一个「能装」的 fpk（版本幽灵）。
+# ⇒ 打包前先重建（Makefile 的 fpack 目标已改为先跑本脚本）+ 这里断言
+#   「产物里的版本戳 == 本次构建声明的版本」⇒ 陈旧产物进不了包。
+for _arch in amd64 arm64; do
+  _bin="$BIN_DIR/pigeonbox-linux-${_arch}"
+  _stamp="$(go version -m "$_bin" 2>/dev/null | sed -n 's/.*version\.Version=\([^ '"'"']*\).*/\1/p' | head -1)"
+  if [ "$_stamp" != "$VERSION" ]; then
+    echo "✗ ${_bin} 内嵌版本戳 = ${_stamp:-无} ≠ 本次构建 VERSION=${VERSION}（ldflags 没生效?）" >&2
+    exit 1
+  fi
+done
+echo "    版本自证 ✓ 双架构二进制内嵌版本戳 = ${VERSION}"
+
+# 陈旧 fpk 清理（2026-10-26 审计 P2）：二进制刚被重建 ⇒ 上一次打出来的
+# pigeonbox.fpk **内容已过期** ⇒ 删掉，免得它被误当成新包发出去/装到 NAS 上。
+if [ -f "$PACK_DIR/pigeonbox.fpk" ]; then
+  rm -f "$PACK_DIR/pigeonbox.fpk"
+  echo "    已清理陈旧 fpk（二进制已重建 ⇒ 旧包内容过期；需重新 fnpack build）"
+fi
+
 # ── 版本戳自证(2026-10-12 版本幽灵根治) ──────────────────────────
 # web 版本单一来源 = APP_VERSION 环境变量 / web/package.json;构建即写
 # version.txt 并断言 dist 内戳一致,不一致=构建红。运维验收一条
