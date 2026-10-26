@@ -1,15 +1,15 @@
 {
   "name": "@pigeonbox/fnos-web",
   "private": true,
-  "version": "4.0.3",
+  "version": "4.0.4",
   "description": "PigeonBox fnOS 内嵌前端:fnOS 宿主适配器(@trimjs/web-app)+公共应用 core(@pigeonbox/frontend-core tgz);fpk 内嵌前端(web 产物)自本目录构建",
   "scripts": {
     "build": "vite build",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@pigeonbox/contracts": "https://github.com/pigeonbox/contracts/releases/download/v0.19.0/pigeonbox-contracts-0.19.0.tgz",
-    "@pigeonbox/frontend-core": "https://github.com/pigeonbox/frontend-core/releases/download/v0.11.32/pigeonbox-frontend-core-0.11.32.tgz",
+    "@pigeonbox/contracts": "https://github.com/pigeonbox/contracts/releases/download/v0.20.3/pigeonbox-contracts-0.20.3.tgz",
+    "@pigeonbox/frontend-core": "https://github.com/pigeonbox/frontend-core/releases/download/v0.11.35/pigeonbox-frontend-core-0.11.35.tgz",
     "@trimjs/web-app": "^0.4.2"
   },
   "devDependencies": {
