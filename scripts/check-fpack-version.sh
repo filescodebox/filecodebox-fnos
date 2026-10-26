@@ -26,39 +26,58 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1${2:+  [$2]}"; }
 
 VERSION="$(cat VERSION 2>/dev/null || true)"
 [ -n "$VERSION" ] || { echo "找不到 VERSION"; exit 1; }
+# 当前 HEAD 的短哈希 =「产物是不是当次构建」的判据（见 stamp_commit_of 的口径说明）
+HEAD_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# 二进制内嵌的版本戳（go build -ldflags -X version.Version=… ⇒ 记在 build info 里）
-stamp_of() { # <二进制>
+# 二进制内嵌的**构建 commit**（go build -ldflags -X version.BuildCommit=… ⇒ 记在 build info 里）
+#
+# ⚠️ 口径说明（2026-10-26 实测修正）：**不能拿它跟仓内 VERSION 文件比**。
+#   build-native.sh 的 VERSION 缺省取 `git describe --tags --always`
+#   ⇒ CI 的浅克隆/游离 HEAD **没有 tag** ⇒ describe 退化成**短 commit 哈希**
+#   ⇒ 实测 fnos CI 里版本戳是 "bd70064"（commit）而不是 "4.0.2"（包版本号）
+#   ⇒ 拿包版本号去比 ⇒ 门禁**恒红**（4.0.2 列车 PR 上就红了）。
+#
+#   真正要判的是「**打进包的是不是陈旧产物**」⇒ 正确的判据是
+#   **二进制的 BuildCommit == 当前 HEAD 的短哈希**：
+#   陈旧产物是从旧 commit 构建的 ⇒ 哈希不等 ⇒ 变红 ✓；
+#   而「包版本号」由 VERSION 文件与前端 version.txt 另行对账（V3）。
+stamp_commit_of() { # <二进制>
+  go version -m "$1" 2>/dev/null \
+    | sed -n 's/.*version\.BuildCommit=\([^ '"'"']*\).*/\1/p' \
+    | head -1
+}
+
+# 二进制的内嵌版本串（非空即可 ⇒ ldflags 生效）
+stamp_version_of() { # <二进制>
   go version -m "$1" 2>/dev/null \
     | sed -n 's/.*version\.Version=\([^ '"'"']*\).*/\1/p' \
     | head -1
 }
 
-# 版本戳是否匹配 VERSION（允许 "4.0.1" / "v4.0.1" / "v4.0.1-3-gabc" 形态）
+# 构建 commit 是否 == 当前 HEAD（防陈旧产物）
 stamp_matches() { # <stamp>
   local s="$1"
   [ -n "$s" ] || return 1
-  s="${s#v}"
-  [ "$s" = "$VERSION" ] && return 0
-  case "$s" in "$VERSION"|"$VERSION"-*|"$VERSION".*) return 0 ;; esac
-  return 1
+  [ -n "$HEAD_COMMIT" ] || return 1
+  [ "$s" = "$HEAD_COMMIT" ]
 }
 
-echo "── V1 打包目录里的二进制版本戳必须 == VERSION(${VERSION})"
+echo "── V1 打包目录里的二进制必须是当次构建（BuildCommit == HEAD ${HEAD_COMMIT}）"
 for arch in amd64 arm64; do
   BIN="fnos/app/bin/pigeonbox-linux-${arch}"
   if [ ! -f "$BIN" ]; then
     bad "V1 缺 $BIN" "先跑 scripts/build-native.sh"
     continue
   fi
-  ST="$(stamp_of "$BIN")"
+  ST="$(stamp_commit_of "$BIN")"
+  SV="$(stamp_version_of "$BIN")"
   if stamp_matches "$ST"; then
-    ok "V1 ${arch} 版本戳 = ${ST}"
+    ok "V1 ${arch} 构建 commit = ${ST}（版本串 ${SV:-无}）"
   else
-    bad "V1 ${arch} 版本戳 = ${ST:-无}" "≠ VERSION ${VERSION} ⇒ 陈旧产物（先跑 scripts/build-native.sh）"
+    bad "V1 ${arch} 构建 commit = ${ST:-无}" "≠ HEAD ${HEAD_COMMIT} ⇒ 陈旧产物（先跑 scripts/build-native.sh）"
   fi
 done
 
@@ -75,7 +94,7 @@ else
   bad "V3 打包目录缺 fnos/app/www/version.txt" "先跑 scripts/build-native.sh"
 fi
 
-echo "── V2 已产出的 fpk 内嵌二进制版本戳必须 == VERSION"
+echo "── V2 已产出的 fpk 内嵌二进制必须是当次构建（BuildCommit == HEAD）"
 FPK="fnos/pigeonbox.fpk"
 if [ ! -f "$FPK" ]; then
   ok "V2 尚无 fpk（跳过；make fpack 产出后再验）"
@@ -90,11 +109,11 @@ else
         bad "V2 fpk 内缺 $BIN" "-"
         continue
       fi
-      ST="$(stamp_of "$WORK/$BIN")"
+      ST="$(stamp_commit_of "$WORK/$BIN")"
       if stamp_matches "$ST"; then
-        ok "V2 fpk 内 ${arch} 版本戳 = ${ST}"
+        ok "V2 fpk 内 ${arch} 构建 commit = ${ST}"
       else
-        bad "V2 fpk 内 ${arch} 版本戳 = ${ST:-无}" "≠ VERSION ${VERSION} ⇒ 打进的是陈旧二进制"
+        bad "V2 fpk 内 ${arch} 构建 commit = ${ST:-无}" "≠ HEAD ${HEAD_COMMIT} ⇒ 打进的是陈旧二进制"
       fi
     done
     # 前端版本戳（复用 build-native.sh 的版本自证口径）
@@ -117,4 +136,4 @@ fi
 echo
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
-echo "✓ fnos fpack 版本戳守卫通过（== ${VERSION}）"
+echo "✓ fnos fpack 产物新鲜度守卫通过（构建 commit == HEAD ${HEAD_COMMIT}）"
