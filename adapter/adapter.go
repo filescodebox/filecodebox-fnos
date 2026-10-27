@@ -83,7 +83,7 @@ func Mount(h *server.Hertz, cfg Config) func(ctx context.Context) error {
 		return nil
 	}
 
-	gw, err := gateway.Listen(cfg.SocketPath, cfg.GatewayPrefix, cfg.ServerPort)
+	gw, err := gateway.Listen(cfg.SocketPath, cfg.GatewayPrefix, cfg.ServerPort, cfg.GatewayTrustedUIDs)
 	if err != nil {
 		// 网关起不来不阻断业务:桌面入口退化为端口直连(入口 url=/),记日志告警。
 		logger.Error("统一网关 socket 启动失败,深度集成降级(业务不受影响)",

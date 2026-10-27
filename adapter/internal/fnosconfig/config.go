@@ -17,7 +17,10 @@ package fnosconfig
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 // 官方约定路径与环境变量(developer.fnnas.com/docs:调用方式/环境变量)。
@@ -42,6 +45,10 @@ type Config struct {
 	SocketPath string
 	// GatewayPrefix 网关公开路径前缀(反代剥离后转交业务)。
 	GatewayPrefix string
+	// GatewayTrustedUIDs 可对端凭据信任的 uid 集合——只有这些对端(飞牛网关
+	// worker / root / 应用自身)带来的 X-Trim-* 身份断言才会被转发给上游。
+	// 空表示不信任任何对端(SSO 显式失败,而不是无来源地采信身份)。
+	GatewayTrustedUIDs []uint32
 
 	// TrimAPIEnabled 官方后端开放 API 可用(api scope socket 存在)。
 	TrimAPIEnabled bool
@@ -79,6 +86,7 @@ func LoadConfig() Config {
 	if appDest := os.Getenv("TRIM_APPDEST"); appDest != "" {
 		cfg.GatewayEnabled = true
 		cfg.SocketPath = getenvOr("PB_GATEWAY_SOCKET", filepath.Join(appDest, DefaultGatewaySocketName))
+		cfg.GatewayTrustedUIDs = resolveTrustedUIDs()
 	}
 
 	// 官方后端 API:socket 存在即视为可用(token 走 env 每次现读,不落盘不缓存)。
@@ -104,4 +112,43 @@ func getenvOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// resolveTrustedUIDs 解析"可对其身份断言放行"的对端 uid 集合。
+//
+// 背景(2026-10-28 真机实证):fnOS 上 app.sock 权限 755 pigeonbox:pigeonbox,
+// 非属主的本地用户(uid 1000,无 DAC_OVERRIDE)**仍能 connect** ⇒ socket 文件
+// 权限不是可靠边界 ⇒ 转发 X-Trim-* 身份断言必须核对对端 uid。
+//
+// 默认集合:root(0) + 应用自身 uid + 飞牛网关 worker 用户(www-data;nginx.conf
+// 的 user 指令。fnOS 各版本 uid 不同,按用户名解析)。
+//
+// PB_GATEWAY_TRUSTED_UIDS(逗号分隔数字)可**整体覆盖**默认集合,用于网关
+// worker 换用户或特殊部署;解析不出有效数字时回退默认集合。
+func resolveTrustedUIDs() []uint32 {
+	if v := strings.TrimSpace(os.Getenv("PB_GATEWAY_TRUSTED_UIDS")); v != "" {
+		var out []uint32
+		for _, part := range strings.Split(v, ",") {
+			n, err := strconv.ParseUint(strings.TrimSpace(part), 10, 32)
+			if err != nil {
+				continue
+			}
+			out = append(out, uint32(n))
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	out := []uint32{0} // root:fnOS 框架以 root 拉起的组件
+	if u, err := user.Current(); err == nil {
+		if uid, perr := strconv.ParseUint(u.Uid, 10, 32); perr == nil {
+			out = append(out, uint32(uid))
+		}
+	}
+	if u, err := user.Lookup("www-data"); err == nil {
+		if uid, perr := strconv.ParseUint(u.Uid, 10, 32); perr == nil {
+			out = append(out, uint32(uid))
+		}
+	}
+	return out
 }

@@ -40,7 +40,7 @@ func newTestGateway(t *testing.T) *gateway.Server {
 	t.Helper()
 	// macOS sun_path 104 字节上限:用 /tmp 短路径。
 	sock := filepath.Join("/tmp", fmt.Sprintf("pb-sso-test-%d.sock", time.Now().UnixNano()))
-	gw, err := gateway.Listen(sock, "/app/pigeonbox", "0")
+	gw, err := gateway.Listen(sock, "/app/pigeonbox", "0", nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
