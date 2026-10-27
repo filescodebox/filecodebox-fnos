@@ -104,7 +104,7 @@ func TestGateway_ProxyStripsPrefixAndInjectsNonce(t *testing.T) {
 
 	// macOS sun_path 上限 104 字节,t.TempDir() 前缀过长,用 /tmp 短路径。
 	sock := filepath.Join("/tmp", fmt.Sprintf("pb-gw-test-%d.sock", time.Now().UnixNano()))
-	gw, err := gateway.Listen(sock, "/app/pigeonbox", fmt.Sprintf("%d", port))
+	gw, err := gateway.Listen(sock, "/app/pigeonbox", fmt.Sprintf("%d", port), nil)
 	require.NoError(t, err)
 	go gw.Serve()
 	defer func() {
