@@ -1,5 +1,5 @@
 appname=pigeonbox
-version=4.0.8
+version=4.0.9
 display_name=PigeonBox
 platform=all
 maintainer=zhangyi
@@ -13,6 +13,7 @@ checkport=true
 micro_app=true
 os_min_version=1.1.3100
 desc=<strong>PigeonBox(文件快递柜)</strong>——匿名口令分享文本与文件:粘贴文本或拖拽上传,即得 6 位取件码与二维码,对方打开链接免注册取件,支持取件密码与到期自动销毁。<br/>数据全部落在你的 NAS 共享目录,文件管理器可直接查看与备份,存储可切换本地磁盘、S3、OSS、COS 等 14 种后端。<br/>深度适配飞牛 fnOS:应用中心一键启停,统一网关<strong>免登录</strong>,授权目录联动、文件管理器互通、主题与语言跟随系统。<br/>内置管理控制台(用户、存储、公告、回收站与审计日志),默认关闭开放注册、生产模式强制管理员密码,页面明示遵守《网络安全法》,Apache-2.0 全开源可审计。
+changelog=4.0.9: 发布列车 4.0.9(底层 core v0.32.26;前端 v4.0.9;详见 Release notes)。
 changelog=4.0.8: 修复统一网关免登录——网关反代此前把飞牛网关注入的 X-Trim-* 身份断言头一并剥离，导致 /api/fnos/login 恒 401、免登录从未生效；现按对端凭据(SO_PEERCRED)判定可信网关后转发身份头，不可信对端仍剥离。
 changelog=4.0.7: 发布列车 4.0.7(底层 core v0.32.23;前端 v4.0.7;详见 Release notes)。
 changelog=4.0.6: 发布列车 4.0.6(底层 core v0.32.21;前端 v4.0.6;详见 Release notes)。
