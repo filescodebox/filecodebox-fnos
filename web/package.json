@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@pigeonbox/contracts": "https://github.com/pigeonbox/contracts/releases/download/v0.20.4/pigeonbox-contracts-0.20.4.tgz",
-    "@pigeonbox/frontend-core": "https://github.com/pigeonbox/frontend-core/releases/download/v0.11.37/pigeonbox-frontend-core-0.11.37.tgz",
+    "@pigeonbox/frontend-core": "https://github.com/pigeonbox/frontend-core/releases/download/v0.11.38/pigeonbox-frontend-core-0.11.38.tgz",
     "@trimjs/web-app": "^0.4.2"
   },
   "devDependencies": {
