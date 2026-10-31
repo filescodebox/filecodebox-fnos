@@ -103,7 +103,26 @@ fi
 # 编译失败 ⇒ **优雅降级**(包内无 pb,应用照常可用)⇒ 不阻断 fpk 发布。
 # (与 p2pc「包内无此文件时优雅跳过」同款纪律。)
 echo "==> 构建 pb CLI(官方命令行客户端)"
-PB_SERVER_REF="${PB_SERVER_REF:-v${VERSION}}"
+# server 的同号 tag（如 v4.6.5）——**取自仓内 VERSION 文件**（列车写的真相源）。
+#
+# ⚠️ 不要用 `git describe`：CI 是**浅克隆且无 tag** ⇒ describe 退化成 commit 哈希
+#   （实测得到 "97732e1"）⇒ 拼出的 "v97732e1" 在 GitHub 上不存在
+#   ⇒ 检出失败 ⇒ pb 静默降级 ⇒ **门禁会红但看不出根因**。
+#
+# ⚠️ 也不要用环境变量 $VERSION：CI 的原生产物构建步骤**不注入** VERSION
+#   （release.yml 才有）⇒ 本地/CI 行为不一致 ⇒ 同一份代码两种结果。
+#
+# 兜底：PB_SERVER_REF 可由构建环境显式指定（本地调试用）。
+PB_SERVER_REF="${PB_SERVER_REF:-}"
+if [ -z "$PB_SERVER_REF" ]; then
+  _pb_ver="$(cat "$ROOT/VERSION" 2>/dev/null | tr -d ' \r\n')"
+  if [ -n "$_pb_ver" ]; then
+    PB_SERVER_REF="v${_pb_ver}"
+  else
+    PB_SERVER_REF="v${VERSION}"
+  fi
+fi
+echo "    server ref = ${PB_SERVER_REF}"
 PB_SRC=""
 _pb_ok=1
 for arch in amd64 arm64; do
