@@ -47,5 +47,15 @@
         "helpText": "深度融合开箱即用,无需任何凭证:统一网关免登录(SSO)、授权目录联动、主题语言跟随均由系统环境自动就绪,无需在此配置。"
       }
     ]
+  },
+  {
+    "stepTitle": "命令行客户端",
+    "items": [
+      {
+        "type": "tips",
+        "field": "pb_tip",
+        "helpText": "随包附带官方命令行客户端 pb(同 p2pc 目录,可直接执行)。自检当前实例: /var/apps/pigeonbox/target/bin/pb-linux-amd64 doctor(arm64 机器把文件名换成 pb-linux-arm64)。深度检查需 admin 的 API Key:在管理台「用户中心 → API 令牌」创建后,执行 PB_API_KEY=pb_sk_xxx /var/apps/pigeonbox/target/bin/pb-linux-amd64 doctor。无 Key 时仍可做公开面检查(会明确标注未做深度检查)。"
+      }
+    ]
   }
 ]
