@@ -29,7 +29,9 @@ PACK_DIR="$ROOT/fnos"
 BIN_DIR="$PACK_DIR/app/bin"
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+OK=0
+# shellcheck disable=SC2154  # rc 在 trap 体内赋值，shellcheck 看不见
+trap 'rc=$?; rm -rf "$WORK"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
 
 # ── V1 打包目录含 pb 双架构二进制 ──
 v1_ok=1
@@ -123,6 +125,7 @@ fi
 echo
 if [ "$FAIL" -eq 0 ]; then
   echo "✓ pb 随包门禁通过（$PASS 项）"
+  OK=1
   exit 0
 fi
 echo "✗ pb 随包门禁失败（$PASS 通过 / $FAIL 失败）"
