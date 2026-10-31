@@ -31,6 +31,7 @@ HEAD_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
 
 WORK="$(mktemp -d)"
 OK=0
+# shellcheck disable=SC2154  # rc 在 trap 体内赋值，shellcheck 看不见
 trap 'rc=$?; rm -rf "$WORK"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
 
 # 二进制内嵌的**构建 commit**（go build -ldflags -X version.BuildCommit=… ⇒ 记在 build info 里）

@@ -31,6 +31,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1${2:+  [$2]}"; }
 
 WORK="$(mktemp -d)"
 OK=0
+# shellcheck disable=SC2154  # rc 在 trap 体内赋值，shellcheck 看不见
 trap 'rc=$?; rm -rf "$WORK"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
 
 # 假的应用目录(脚本 [1/6] 会 cp -a 它)与假 fpk

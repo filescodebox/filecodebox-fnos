@@ -18,6 +18,7 @@ OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/dist/store-submission}"
 PKG_NAME="pigeonbox-fnos-store-v${VERSION}"
 WORK="$(mktemp -d)"
 OK=0
+# shellcheck disable=SC2154  # rc 在 trap 体内赋值，shellcheck 看不见
 trap 'rc=$?; rm -rf "$WORK"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
 
 # 截图清单: 源文件|成品名(编号即建议展示顺序;包内一律 ASCII 文件名防 Windows 解压乱码,
