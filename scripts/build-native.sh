@@ -115,7 +115,7 @@ echo "==> 构建 pb CLI(官方命令行客户端)"
 # 兜底：PB_SERVER_REF 可由构建环境显式指定（本地调试用）。
 PB_SERVER_REF="${PB_SERVER_REF:-}"
 if [ -z "$PB_SERVER_REF" ]; then
-  _pb_ver="$(cat "$ROOT/VERSION" 2>/dev/null | tr -d ' \r\n')"
+  _pb_ver="$(tr -d ' \r\n' < "$ROOT/VERSION" 2>/dev/null || true)"
   if [ -n "$_pb_ver" ]; then
     PB_SERVER_REF="v${_pb_ver}"
   else
@@ -151,7 +151,9 @@ done
 if [ "$_pb_ok" = "1" ] && ! ls "$BIN_DIR"/pb-linux-* >/dev/null 2>&1; then
   echo "    ✗ pb 两个架构均不可用——优雅降级(包内无 pb,应用照常)"
 fi
-[ -n "$PB_SRC" ] && rm -rf "$(dirname "$PB_SRC")" 2>/dev/null || true
+if [ -n "$PB_SRC" ]; then
+  rm -rf "$(dirname "$PB_SRC")" 2>/dev/null || true
+fi
 
 echo "==> 构建前端 dist → $WWW_DIR"
 rm -rf "$WWW_DIR"
