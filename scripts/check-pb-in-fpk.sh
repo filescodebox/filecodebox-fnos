@@ -68,10 +68,14 @@ if [ "$v1_ok" = "1" ]; then
       esac
     fi
     if [ "$host_match" = "1" ]; then
-      if out="$("$f" --help 2>&1)"; then
-        ok "V2 pb-linux-${arch} 可执行（--help 出帮助文本）"
+      # ⚠️ 不能用「退出码 == 0」判断可执行：pb 的用法错误退出码是 **2**
+      #   （`pb --help` 属未知子命令 ⇒ 退出非 0）⇒ 用退出码判会**误判为不可执行**。
+      #   ⇒ 判据：**能跑起来且输出里含帮助/用法文本**。
+      out="$("$f" --help 2>&1)" || true
+      if printf '%s' "$out" | grep -qE "用法|usage|子命令"; then
+        ok "V2 pb-linux-${arch} 可执行（输出了用法文本）"
       else
-        bad "V2 pb-linux-${arch} 执行失败" "$(printf '%s' "$out" | head -c 200)"
+        bad "V2 pb-linux-${arch} 执行异常（既没成功也没出用法文本）" "$(printf '%s' "$out" | head -c 200)"
       fi
     else
       # 非本机架构：静态判「是 ELF 且架构对」
@@ -90,13 +94,21 @@ FPK="$PACK_DIR/pigeonbox.fpk"
 if [ -f "$FPK" ]; then
   # fpk 是 gzip 压缩的 tar ⇒ 两段解包：先 tar 得 app.tgz，再 tar 得 app/
   if tar xzf "$FPK" -C "$WORK" 2>/dev/null && [ -f "$WORK/app.tgz" ]; then
+    # ⚠️ app.tgz **内层没有 app/ 这一层**（真机实录：解包后是 bin/ configs/ ui/ www/）
+    #   ⇒ 二进制在 "$WORK/bin/" ⇒ 早先按 "$WORK/app/bin/" 找 ⇒ **恒判「缺 pb」**
+    #   （假象：包里有 pb，只是路径找错）。
     tar xzf "$WORK/app.tgz" -C "$WORK" 2>/dev/null
+    # 兼容两种布局（app/ 前缀 or 无前缀）。
+    PB_BIN_DIR=""
+    for cand in "$WORK/bin" "$WORK/app/bin"; do
+      if [ -d "$cand" ]; then PB_BIN_DIR="$cand"; break; fi
+    done
     v3_ok=1
     for arch in amd64 arm64; do
-      if [ -f "$WORK/app/bin/pb-linux-${arch}" ]; then
+      if [ -n "$PB_BIN_DIR" ] && [ -f "$PB_BIN_DIR/pb-linux-${arch}" ]; then
         ok "V3 fpk 内含 pb-linux-${arch}"
       else
-        bad "V3 fpk 内缺 pb-linux-${arch}" "解包后 $WORK/app/bin/"
+        bad "V3 fpk 内缺 pb-linux-${arch}" "解包后候选目录：$WORK/bin、$WORK/app/bin（实际：${PB_BIN_DIR:-都没找到}）"
         v3_ok=0
       fi
     done
