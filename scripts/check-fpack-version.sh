@@ -30,7 +30,8 @@ VERSION="$(cat VERSION 2>/dev/null || true)"
 HEAD_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+OK=0
+trap 'rc=$?; rm -rf "$WORK"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
 
 # 二进制内嵌的**构建 commit**（go build -ldflags -X version.BuildCommit=… ⇒ 记在 build info 里）
 #
@@ -137,3 +138,4 @@ echo
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
 echo "✓ fnos fpack 产物新鲜度守卫通过（构建 commit == HEAD ${HEAD_COMMIT}）"
+OK=1
