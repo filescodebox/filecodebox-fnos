@@ -84,6 +84,15 @@ jobs:
       # web/package.json ⇒ 陈旧包直接红（负对照：把 VERSION 改成 9.9.9 即红）。
       - name: fpack 版本戳对账（防陈旧产物进包）
         run: bash scripts/check-fpack-version.sh
+      # pb CLI 随包门禁（2026-10-31）：pb 是**源码编译**的（检出 server 同号 tag
+      # ⇒ 避开与 server Release 流水线的竞态）⇒ 失败点是**静默降级**（编不出来
+      # 就不带 pb，应用照常可用）⇒ 没有门禁的话「fnOS 用户能不能用 pb」只能
+      # 靠人工装包后才发现。
+      # ⇒ 断言：打包目录与 fpk 内都有 pb 双架构二进制，且**真的能执行**
+      # （架构错会 exec format error ⇒ 只判「文件存在」不够）。
+      - name: pb CLI 随包门禁（双架构 + 可执行）
+        if: always()
+        run: bash scripts/check-pb-in-fpk.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pigeonbox-fpk

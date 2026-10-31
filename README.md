@@ -63,6 +63,29 @@
 
 **数据备份与恢复**：升级时自动快照业务库（`data/fileCodeBox.db.bak-<时间戳>`，轮转保留最近 3 份）。手动恢复：应用设置停止应用 → 用备份覆盖 `data/fileCodeBox.db` → 启动应用。进程内置看门狗（每 30s 健康探测，无响应自动重启/崩溃自动拉起），日志见应用数据目录 `app.log`。
 
+## 命令行客户端（pb）
+
+应用包内自带官方命令行客户端 **pb**（与 p2pc 同目录，双架构静态二进制），用于**自检**当前实例：
+
+```bash
+# x86_64 机器
+/var/apps/pigeonbox/target/bin/pb-linux-amd64 doctor
+# arm64 机器把文件名换成 pb-linux-arm64
+```
+
+`doctor` 会检查服务版本、部署模式、数据库、存储后端、Redis、站点公网地址、首启状态、
+被降级的能力与时钟偏差。
+
+> **深度检查需要 admin 的 API Key**：在管理台「用户中心 → API 令牌」创建后执行
+> ```bash
+> PB_API_KEY=pb_sk_xxx /var/apps/pigeonbox/target/bin/pb-linux-amd64 doctor
+> ```
+> 未设置 Key 时仍会做**公开面检查**（服务可达、robots.txt 等），
+> 并在报告里**明确标注「深度检查未执行」**（不是「通过」）。
+
+> pb 的版本与包内服务端**同号**（两者都由同一趟发布列车产出）⇒ 不会出现
+> 「客户端比服务端新」的错配。
+
 ## 打包 .fpk
 
 ```bash
