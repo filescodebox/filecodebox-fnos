@@ -17,7 +17,9 @@ SHOTS_DIR="${SHOTS_DIR:-$REPO_ROOT/../docs-site/public/screenshots}"
 OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/dist/store-submission}"
 PKG_NAME="pigeonbox-fnos-store-v${VERSION}"
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+OK=0
+# shellcheck disable=SC2154  # rc 在 trap 体内赋值，shellcheck 看不见
+trap 'rc=$?; rm -rf "$WORK"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
 
 # 截图清单: 源文件|成品名(编号即建议展示顺序;包内一律 ASCII 文件名防 Windows 解压乱码,
 # 中文名称写在 README 对照表;全部应为本版本真实 UI,禁止占位图)
@@ -149,3 +151,4 @@ rm -f "$OUT_ROOT/$PKG_NAME.zip"
 log "完成: $OUT_ROOT/$PKG_NAME.zip"
 log "  目录: $PKG_DIR"
 ls -lh "$PKG_NAME.zip" 2>/dev/null || ls -lh "$OUT_ROOT/$PKG_NAME.zip"
+OK=1

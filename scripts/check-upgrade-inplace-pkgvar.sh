@@ -30,7 +30,9 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1${2:+  [$2]}"; }
 [ -f "$SCRIPT" ] || { echo "找不到 $SCRIPT"; exit 1; }
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+OK=0
+# shellcheck disable=SC2154  # rc 在 trap 体内赋值，shellcheck 看不见
+trap 'rc=$?; rm -rf "$WORK"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
 
 # 假的应用目录(脚本 [1/6] 会 cp -a 它)与假 fpk
 FAKE_T="$WORK/target"
@@ -96,3 +98,4 @@ echo
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
 echo "✓ fnos 原地换装 PKGVAR 取值守卫通过（取不到不终止脚本）"
+OK=1
