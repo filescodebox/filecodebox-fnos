@@ -128,5 +128,12 @@ if [ "$FAIL" -eq 0 ]; then
   OK=1
   exit 0
 fi
+if [ "${PB_REQUIRED:-0}" != "1" ]; then
+  # CI 阶段（bump PR）：server 同号 tag 还不存在 ⇒ pb 编不出来是**预期**的
+  # ⇒ 只告警，不阻断（否则 bump PR 合不进去 ⇒ 列车死锁）。
+  echo "⚠ pb 随包门禁未通过（$PASS 通过 / $FAIL 失败）——CI 阶段不阻断"
+  echo "  （server 同号 tag 未就绪时 pb 会缺失；发布流水线以 PB_REQUIRED=1 硬断言）"
+  exit 0
+fi
 echo "✗ pb 随包门禁失败（$PASS 通过 / $FAIL 失败）"
 exit 1
