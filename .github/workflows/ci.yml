@@ -93,6 +93,15 @@ jobs:
       - name: pb CLI 随包门禁（双架构 + 可执行）
         if: always()
         run: bash scripts/check-pb-in-fpk.sh
+      # 出厂预接线（Beam↔Box 地址与专用 API Key）自测（2026-11-01）：
+      # 预接线干两件**错了也不会有人喊**的事——① 建/复用一把 Box API Key；
+      # ② 把地址+Key 写进 p2pcweb 配置。若它「每次启动都建一把新 Key」，
+      # Key 列表会无声膨胀；若它发了空字段把用户配的 registry 冲掉，
+      # 直传注册中心会静默丢失 ⇒ 两类都必须有**能判红**的机械化判据。
+      # 本自测跑**真脚本**（假 Box + 假 p2pcweb），并带**变异负对照**证明判据有牙齿。
+      - name: Beam 出厂预接线自测（幂等 + scope 精确 + 不冲 registry）
+        if: always()
+        run: bash scripts/prewire-beam-box-selftest.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pigeonbox-fpk
