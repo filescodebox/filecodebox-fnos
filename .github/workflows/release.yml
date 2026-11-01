@@ -74,6 +74,16 @@ jobs:
           chmod +x fnpack
       - name: fnpack build
         run: cd fnos && ../fnpack build
+      # pb CLI 随包门禁（**发布流水线硬断言**）
+      #
+      # 为什么断言放在 release 而不是 CI：
+      #   · CI（bump PR）阶段 server 的同号 tag **还不存在** ⇒ pb 编不出来是预期的
+      #     ⇒ 那里硬断会让 bump PR 合不进去 ⇒ 列车死锁；
+      #   · release（tag push）阶段 server tag **已可见**（hub#232 加了
+      #     「server 之后等 tag 可见」的顺序保证）⇒ pb 必定编得出
+      #     ⇒ 这里才是「**发布出去的包必须含 pb**」的真正断言点。
+      - name: pb CLI 随包门禁（发布流水线硬断言）
+        run: PB_REQUIRED=1 bash scripts/check-pb-in-fpk.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pigeonbox-fpk
