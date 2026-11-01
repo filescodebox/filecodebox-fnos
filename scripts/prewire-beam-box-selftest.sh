@@ -118,18 +118,23 @@ PYEOF
 BOX_PORT=18871
 BEAM_PORT=18872
 STATE="$TMP/state.json"
-python3 "$TMP/mock.py" "$BOX_PORT" "$STATE" "$BEAM_PORT" >/dev/null 2>&1 &
+# ⚠️ mock 日志留档：自测自身失效时能看到它到底报了什么（CI 上排查的唯一线索）
+python3 "$TMP/mock.py" "$BOX_PORT" "$STATE" "$BEAM_PORT" >"$TMP/mock.log" 2>&1 &
 MOCK_PID=$!
 
-# 等 mock 就绪
-for _ in $(seq 1 20); do
+# 等 mock 就绪（⚠️ CI runner 比本机慢 ⇒ 等待放宽到 60×0.2s=12s；
+#   4s 在本机够、在 CI 上偶发不够 ⇒ 表现为「自测自身失效」的**假红**）
+ready=0
+for _ in $(seq 1 60); do
     if curl -s -m 1 "http://127.0.0.1:${BOX_PORT}/ping" 2>/dev/null | grep -q pong; then
+        ready=1
         break
     fi
     sleep 0.2
 done
-if ! curl -s -m 2 "http://127.0.0.1:${BOX_PORT}/ping" 2>/dev/null | grep -q pong; then
-    echo "✗ 假 Box 未就绪——自测自身失效"
+if [ "$ready" != "1" ]; then
+    echo "✗ 假 Box 未就绪——自测自身失效（mock 日志：）"
+    tail -20 "$TMP/mock.log" 2>/dev/null | sed 's/^/    /'
     exit 1
 fi
 
