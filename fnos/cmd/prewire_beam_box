@@ -51,22 +51,27 @@ if [ -z "${PB_ADMIN_PASSWORD:-}" ]; then
     log "未设 PB_ADMIN_PASSWORD（未走向导建号）⇒ 跳过（Beam 仍需手填）"
     exit 0
 fi
-if [ ! -r "$TOKEN_FILE" ]; then
-    log "p2pcweb 令牌文件不可读（${TOKEN_FILE}）⇒ p2pcweb 未就绪，跳过"
-    exit 0
-fi
 
-# ── 1. 等 Box 就绪 ─────────────────────────────────────────────────────
-box_ready=0
-for _ in $(seq 1 15); do
-    if curl -s -m 2 "${BOX_BASE}/ping" 2>/dev/null | grep -q pong; then
-        box_ready=1
+# ── 1. 等 Box 与 p2pcweb 就绪（**等待逻辑放在脚本里**，不放在各端包装函数）──
+#   ⚠️ 为什么必须自包含：openwrt 的 Box 与 p2pcweb 由 procd **异步**拉起
+#   ⇒ 调用预接线的时刻可能**早于**两者就绪
+#   ⇒ 若只在包装函数里等一次 ⇒ 会**偶发**跳过 ⇒ 表现为「装完还是得手填」
+#   ⇒ 且偶发 ⇒ 极难复现、极难归因。
+#   ⇒ 这里同时等两件事：Box /ping 就绪 **且** p2pcweb 令牌文件出现。
+WAIT_MAX="${PB_PREWIRE_WAIT_MAX:-30}"
+waited=0
+ready=0
+while [ "$waited" -lt "$WAIT_MAX" ]; do
+    if curl -s -m 2 "${BOX_BASE}/ping" 2>/dev/null | grep -q pong \
+        && [ -s "${TOKEN_FILE}" ]; then
+        ready=1
         break
     fi
     sleep 1
+    waited=$((waited + 1))
 done
-if [ "$box_ready" != "1" ]; then
-    log "Box 未就绪（${BOX_BASE}）⇒ 跳过（Beam 仍需手填）"
+if [ "$ready" != "1" ]; then
+    log "Box 或 p2pcweb 未就绪（等 ${WAIT_MAX}s）⇒ 跳过（Beam 仍需手填）"
     exit 0
 fi
 
