@@ -177,17 +177,11 @@ prewire_beam_box() {
         log_msg "beam prewire: script missing (${script}), skip"
         return 0
     fi
-    # 等 p2pcweb 写出令牌文件（它自持写入，首启可能慢一拍）
-    local waited=0
-    while [ ! -s "${PB_DATA_PATH}/.p2pcweb_token" ] && [ "$waited" -lt 10 ]; do
-        sleep 1
-        waited=$((waited + 1))
-    done
-    local out
-    out="$(bash "$script" 2>&1)"
-    if [ -n "$out" ]; then
-        log_msg "beam prewire: $(printf '%s' "$out" | tr '\n' ' ')"
-    fi
+    # ⚠️ **后台执行**：脚本自己会等 Box / p2pcweb 就绪（最多 30s）
+    #   ⇒ 前台调用会把包启动**阻塞** 30s ⇒ 极端情况下触发 appcenter 超时。
+    #   ⇒ 后台跑；就绪后自动完成预置，幂等 ⇒ 下次启动会自愈重试。
+    nohup bash "$script" >> "${LOG_FILE}" 2>&1 &
+    log_msg "beam prewire: started (background; waits for Box + p2pcweb readiness)"
     return 0
 }
 

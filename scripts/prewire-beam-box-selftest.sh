@@ -118,18 +118,23 @@ PYEOF
 BOX_PORT=18871
 BEAM_PORT=18872
 STATE="$TMP/state.json"
-python3 "$TMP/mock.py" "$BOX_PORT" "$STATE" "$BEAM_PORT" >/dev/null 2>&1 &
+# ⚠️ mock 日志留档：自测自身失效时能看到它到底报了什么（CI 上排查的唯一线索）
+python3 "$TMP/mock.py" "$BOX_PORT" "$STATE" "$BEAM_PORT" >"$TMP/mock.log" 2>&1 &
 MOCK_PID=$!
 
-# 等 mock 就绪
-for _ in $(seq 1 20); do
+# 等 mock 就绪（⚠️ CI runner 比本机慢 ⇒ 等待放宽到 60×0.2s=12s；
+#   4s 在本机够、在 CI 上偶发不够 ⇒ 表现为「自测自身失效」的**假红**）
+ready=0
+for _ in $(seq 1 60); do
     if curl -s -m 1 "http://127.0.0.1:${BOX_PORT}/ping" 2>/dev/null | grep -q pong; then
+        ready=1
         break
     fi
     sleep 0.2
 done
-if ! curl -s -m 2 "http://127.0.0.1:${BOX_PORT}/ping" 2>/dev/null | grep -q pong; then
-    echo "✗ 假 Box 未就绪——自测自身失效"
+if [ "$ready" != "1" ]; then
+    echo "✗ 假 Box 未就绪——自测自身失效（mock 日志：）"
+    tail -20 "$TMP/mock.log" 2>/dev/null | sed 's/^/    /'
     exit 1
 fi
 
@@ -142,6 +147,7 @@ run_prewire() { # <脚本路径> → 退出码
     PB_P2PCWEB_PORT="$BEAM_PORT" \
     PB_DATA_PATH="$DATA" \
     PB_ADMIN_PASSWORD=admin123 \
+    PB_PREWIRE_WAIT_MAX="${PB_PREWIRE_WAIT_MAX:-30}" \
         bash "$1" >/dev/null 2>&1
 }
 
@@ -190,6 +196,22 @@ if printf '%s' "${CFG:-}" | grep -q '"registry"'; then
 else
     note_ok "配置只发 server_url + box_api_key"
 fi
+
+# ── 判据 ④：令牌文件晚出现 ⇒ 预接线仍须等到就绪后完成 ──────────────────
+#   openwrt 的 Box 与 p2pcweb 由 procd **异步**拉起 ⇒ 调用时刻可能早于就绪
+#   ⇒ 「等待就绪」必须**在脚本里**（各端包装函数只管后台调用）
+#   ⇒ 否则会**偶发**跳过 ⇒ 表现为「装完还是得手填」，且极难复现。
+echo "── 判据 ④：等待就绪（令牌文件晚出现）"
+rm -f "$DATA/.p2pcweb_token"
+( sleep 3; printf 'BEAMTOKEN123' > "$DATA/.p2pcweb_token" ) &
+DELAY_PID=$!
+PB_PREWIRE_WAIT_MAX=20 run_prewire "$PREWIRE"
+wait "$DELAY_PID" 2>/dev/null
+CFG4=$(state_get config)
+case "$CFG4" in
+    *box_api_key*) note_ok "令牌晚到也能等到就绪并完成预置" ;;
+    *) note_fail "令牌晚到时未完成预置（等待逻辑失效）" ;;
+esac
 
 # ── 负对照 A：改坏「缓存有效则复用」⇒ 判据 ② 必须红 ───────────────────
 echo "── 负对照 A：改坏复用逻辑（判据 ② 必须红）"
