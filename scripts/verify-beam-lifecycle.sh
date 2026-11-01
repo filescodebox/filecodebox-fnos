@@ -60,7 +60,19 @@ record() { # record <ok|no|skip> <名称> <详情>
 #   （"$0" + 注入的探针 ⇒ 真实代码路径，不是副本）⇒ 每条判据都能被驱动进「异常态」。
 if [ "${1:-}" = "--selfcheck" ]; then
   SELF_DIR="$(mktemp -d)"
-  trap 'rm -rf "$SELF_DIR"' EXIT
+  # EXIT trap 必须**保留退出码**（成功哨兵形态）。
+  #
+  # ⚠️ 原写法 `trap 'rm -rf "$SELF_DIR"' EXIT` 会**吞掉退出码**：
+  #   脚本用 `set -uo pipefail`（**无 -e**）⇒ 未定义变量失败时 $? 可能是 0；
+  #   且 trap 体最后一条命令（rm）成功 ⇒ 最终退出码恒 0
+  #   ⇒ 本脚本是 **fnos#115 的关单证据工具** ⇒ 「判据该红时没红」会被
+  #     报成 exit 0 ⇒ **证据不可信**（这正是自证模式要防的事）。
+  #   ⇒ 正确形态：`OK=1` 标记「跑到了结尾」；trap 里 rc≠0 原样保留，
+  #     rc=0 且 OK≠1 ⇒ 没跑到结尾却没留失败码 ⇒ 判失败。
+  #   （与 hub 门禁 scripts/check-shell-trap-exit-code.sh 的判据一致）
+  # shellcheck disable=SC2154  # rc 在 trap 体内赋值，shellcheck 看不见
+  trap 'rc=$?; rm -rf "$SELF_DIR"; if [ "$rc" -ne 0 ]; then exit $rc; fi; if [ "${OK:-0}" != 1 ]; then exit 1; fi; exit 0' EXIT
+  OK=0
   FAKE="$SELF_DIR/bin"
   mkdir -p "$FAKE" "$SELF_DIR/app/target/bin" "$SELF_DIR/data"
 
@@ -173,6 +185,7 @@ ID_EOF
     exit 1
   fi
   echo "✓ 自证：正常态绿、每条异常态都红、非 root 报无法判定 ⇒ 判据有牙齿"
+  OK=1   # 跑到了结尾 ⇒ EXIT trap 允许以 0 退出（成功哨兵）
   exit 0
 fi
 
