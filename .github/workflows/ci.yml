@@ -56,7 +56,7 @@ jobs:
         with:
           go-version: "1.26.10"
           cache-dependency-path: go.sum
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
       # npm ci 走网络（拉 frontend-core tgz）⇒ 偶发失败 ⇒ 此前会**连带挡掉**后面的
@@ -106,7 +106,7 @@ jobs:
       - name: Beam 出厂预接线自测（幂等 + scope 精确 + 不冲 registry）
         if: always()
         run: bash scripts/prewire-beam-box-selftest.sh
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pigeonbox-fpk
           path: fnos/pigeonbox.fpk
