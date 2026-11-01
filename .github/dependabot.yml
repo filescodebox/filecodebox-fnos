@@ -8,5 +8,13 @@ updates:
       interval: weekly
   - package-ecosystem: npm
     directory: /web
+    ignore:
+      # typescript 大版本（7.x）**装不上**：vue-tsc 3.3.x 依赖 TS 的 JS 编译器 API，
+      # 而 typescript@7 是 Go 原生移植（包内只有各平台二进制，无 lib/typescript.js）
+      # ⇒ vue-tsc 直接崩（ERR_PACKAGE_PATH_NOT_EXPORTED: './lib/tsc'）。
+      # ⇒ 大版本由人工成组处理（frontend-core#40：库 + 消费方一次做完），别让 dependabot
+      #    反复开合不进去的 PR。
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     schedule:
       interval: weekly
