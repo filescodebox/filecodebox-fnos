@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# NAS 出厂预接线：给 PigeonBeam（p2pcweb）预置 Box 地址 + 专用 API Key。
+#
+# 为什么需要（roadmap §3.1 的真实缺口）：
+#   今天用户要在 Beam 的「文件柜」tab **手填** Box 地址与 API Key
+#   （且要去 Box 管理台手工生成一把 Key 再粘贴）⇒ 装完 NAS 包并不「即用」。
+#   ⇒ 本脚本在 NAS 应用启动后自动完成预置 ⇒ **装完即用**。
+#
+# 三个关键机制（都踩过坑，勿改）：
+#   ① API Key **明文只在创建时返回一次**（库里只存 hash/prefix）
+#      ⇒ 「缺失才建」**不能靠查列表复用**（列表里没有明文）
+#      ⇒ 明文落到本地缓存 ${PB_DATA_PATH}/.beam_box_api_key（0600），
+#        每次启动**校验有效性**，失效才重建
+#      ⇒ 自愈覆盖：换库 / 用户手动撤销 / 缓存丢失。
+#   ② p2pcweb 的 /api/config **只更新非空字段**（留空 = 保持已存值）
+#      ⇒ 这里**只发** server_url + box_api_key
+#      ⇒ 不动用户已配的 registry（直传注册中心）。
+#   ③ 预接线失败**不阻断** Box 启动（优雅降级）
+#      ⇒ Beam 退化为「手填」旧行为，应用照常可用。
+#
+# 环境变量（由 fnos/cmd/main 的 prepare_env 注入）：
+#   PB_SERVER_PORT（Box 端口，默认 12345）· PB_P2PCWEB_PORT（Beam 端口，默认 12348）
+#   PB_DATA_PATH（数据卷）· PB_ADMIN_PASSWORD（向导写入的管理员口令）
+#
+# 用法: bash scripts/prewire-beam-box.sh
+set -uo pipefail
+
+SERVER_PORT="${PB_SERVER_PORT:-12345}"
+BEAM_PORT="${PB_P2PCWEB_PORT:-12348}"
+DATA_DIR="${PB_DATA_PATH:-}"
+KEY_NAME="${PB_PREWIRE_KEY_NAME:-p2pcweb-prewire}"
+# ⚠️ scope 全量：admin+user+share（用户 2026-11-01 拍板）。
+#    p2pcweb 实际只用 X-API-Key 调 /share/file/（投递到柜），
+#    但这把 Key 常驻 NAS 数据卷 ⇒ 按用户选择给全量（可随时在管理台撤销）。
+SCOPES_JSON='["admin","user","share"]'
+
+if [ -z "$DATA_DIR" ]; then
+    echo "prewire: PB_DATA_PATH 未设，跳过（Beam 仍需手填）"
+    exit 0
+fi
+
+BOX_BASE="http://127.0.0.1:${SERVER_PORT}"
+BEAM_BASE="http://127.0.0.1:${BEAM_PORT}"
+KEY_CACHE="${DATA_DIR}/.beam_box_api_key"
+TOKEN_FILE="${DATA_DIR}/.p2pcweb_token"
+
+log() { echo "prewire: $*"; }
+
+# ── 0. 依赖检查 ────────────────────────────────────────────────────────
+if [ -z "${PB_ADMIN_PASSWORD:-}" ]; then
+    log "未设 PB_ADMIN_PASSWORD（未走向导建号）⇒ 跳过（Beam 仍需手填）"
+    exit 0
+fi
+if [ ! -r "$TOKEN_FILE" ]; then
+    log "p2pcweb 令牌文件不可读（${TOKEN_FILE}）⇒ p2pcweb 未就绪，跳过"
+    exit 0
+fi
+
+# ── 1. 等 Box 就绪 ─────────────────────────────────────────────────────
+box_ready=0
+for _ in $(seq 1 15); do
+    if curl -s -m 2 "${BOX_BASE}/ping" 2>/dev/null | grep -q pong; then
+        box_ready=1
+        break
+    fi
+    sleep 1
+done
+if [ "$box_ready" != "1" ]; then
+    log "Box 未就绪（${BOX_BASE}）⇒ 跳过（Beam 仍需手填）"
+    exit 0
+fi
+
+# ── 2. 复用缓存的 Key（校验有效性）────────────────────────────────────
+#    ⚠️ 校验必须**打到真正会被读到的量**上：用 API Key 头访问受鉴权端点，
+#    200 = 有效；401/403 = 已失效 ⇒ 走重建。
+cached_key=""
+if [ -r "$KEY_CACHE" ]; then
+    cached_key="$(head -n 1 "$KEY_CACHE" 2>/dev/null | tr -d '[:space:]')"
+fi
+if [ -n "$cached_key" ]; then
+    # ⚠️ 校验端点必须是**接受 API Key 且只读**的那个：
+    #   /user/api-keys 是**会话面**（AuthMiddleware）⇒ 用 API Key 调恒 401
+    #   ⇒ 会把「好 Key」误判成「已失效」⇒ 每次启动都重建一把（Key 列表膨胀）。
+    #   /api/v1/user/shares 走 UserOrAPIKey ⇒ 只读、无副作用、认 X-API-Key。
+    code=$(curl -s -o /dev/null -w '%{http_code}' -m 5 \
+        -H "X-API-Key: ${cached_key}" "${BOX_BASE}/api/v1/user/shares" 2>/dev/null)
+    case "$code" in
+        200)
+            log "复用缓存的 API Key（校验 ${code}）"
+            ;;
+        *)
+            log "缓存的 API Key 已失效（${code}）⇒ 重建"
+            cached_key=""
+            ;;
+    esac
+fi
+
+# ── 3. 没有可用 Key ⇒ 登录 + 建一把 ───────────────────────────────────
+if [ -z "$cached_key" ]; then
+    # 3a. 登录拿会话 token（口令**不打印**）
+    login_body=$(printf '{"username":"admin","password":"%s"}' "${PB_ADMIN_PASSWORD}")
+    login_resp=$(curl -sS -m 8 -X POST "${BOX_BASE}/admin/login" \
+        -H 'Content-Type: application/json' --data-binary "$login_body" 2>/dev/null)
+    token=$(printf '%s' "$login_resp" \
+        | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    if [ -z "$token" ]; then
+        log "登录失败 ⇒ 跳过（Beam 仍需手填）"
+        exit 0
+    fi
+    # 3b. 创建专用 Key（全量 scope，名字固定 ⇒ 用户在管理台一眼认得、可撤销）
+    create_body=$(printf '{"name":"%s","scopes":%s}' "$KEY_NAME" "$SCOPES_JSON")
+    create_resp=$(curl -sS -m 8 -X POST "${BOX_BASE}/user/api-keys" \
+        -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
+        --data-binary "$create_body" 2>/dev/null)
+    cached_key=$(printf '%s' "$create_resp" \
+        | sed -n 's/.*"key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    if [ -z "$cached_key" ]; then
+        log "创建 API Key 失败 ⇒ 跳过（Beam 仍需手填）"
+        exit 0
+    fi
+    # 3c. 明文落缓存（0600）—— 只此一次机会，丢了就只能重建
+    (umask 077 && printf '%s' "$cached_key" > "$KEY_CACHE") || {
+        log "缓存文件写入失败 ⇒ 跳过（Beam 仍需手填）"
+        exit 0
+    }
+    log "已创建 API Key（${KEY_NAME}）并缓存到数据卷"
+fi
+
+# ── 4. 写入 p2pcweb 配置（只发非空字段 ⇒ 不动已配的 registry）────────
+beam_token=$(head -n 1 "$TOKEN_FILE" 2>/dev/null | tr -d '[:space:]')
+if [ -z "$beam_token" ]; then
+    log "p2pcweb 令牌为空 ⇒ 跳过"
+    exit 0
+fi
+config_body=$(printf '{"server_url":"%s","box_api_key":"%s"}' "$BOX_BASE" "$cached_key")
+# ⚠️ p2pcweb 的 guard：令牌走 **X-P2PCWEB 头**；
+#   只有首页 `/` 才认 `?t=`（query）⇒ 用 `?t=` 调 API 恒 403「令牌无效」（真机实录）。
+config_resp=$(curl -sS -m 8 -X POST "${BEAM_BASE}/api/config" \
+    -H "X-P2PCWEB: ${beam_token}" -H 'Content-Type: application/json' \
+    --data-binary "$config_body" 2>/dev/null)
+case "$config_resp" in
+    *'"ok"'*)
+        log "已预置 Beam 文件柜（地址 ${BOX_BASE} + 专用 API Key）"
+        exit 0
+        ;;
+    *)
+        log "写 p2pcweb 配置失败：$(printf '%s' "$config_resp" | head -c 200)"
+        exit 0
+        ;;
+esac

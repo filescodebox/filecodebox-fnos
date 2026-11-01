@@ -22,6 +22,17 @@
 #   4. **卸载/升级不残留**：数据卷清理正常。
 set -uo pipefail
 
+# ── 外部探针可注入（默认仍是真命令）──────────────────────────────────────
+# 为什么可注入：这份脚本是 fnos#115 **关单的证据工具** ⇒ 判据必须能判红；
+# 而判据依赖真机（curl / pgrep / ss / id）⇒ 没法在 CI 里驱动它进「异常态」
+# ⇒ 把探针做成可注入 ⇒ --selfcheck 用**假设备**证明每条判据都会红。
+#
+# ⚠️ **只认环境变量里的探针** ⇒ 真机上不设这些变量 ⇒ 行为与从前完全一致。
+CMD_CURL="${PB_CMD_CURL:-curl}"
+CMD_PGREP="${PB_CMD_PGREP:-pgrep}"
+CMD_SS="${PB_CMD_SS:-ss}"
+CMD_ID="${PB_CMD_ID:-id}"
+
 # ── 定位应用 ───────────────────────────────────────────────────────────
 APP_ROOT="${PB_APP_ROOT:-/usr/local/Apps/pigeonbox}"
 DATA_DIR="${1:-${PB_DATA_PATH:-}}"
@@ -42,14 +53,137 @@ record() { # record <ok|no|skip> <名称> <详情>
   printf '  [%s] %s — %s\n' "$1" "$2" "$3"
 }
 
+# ── 自证模式：证明每条判据**能判红** ──────────────────────────────────────
+# 这份脚本是 fnos#115 **关单的证据工具** ⇒ 若某条判据静默失效，脚本照样报
+# 「✓ 已判定的项全部通过」⇒ **关单证据不可信**。
+# ⇒ 用**假设备**（假 curl / 假 pgrep / 假 ss / 假 id）驱动**脚本自己**
+#   （"$0" + 注入的探针 ⇒ 真实代码路径，不是副本）⇒ 每条判据都能被驱动进「异常态」。
+if [ "${1:-}" = "--selfcheck" ]; then
+  SELF_DIR="$(mktemp -d)"
+  trap 'rm -rf "$SELF_DIR"' EXIT
+  FAKE="$SELF_DIR/bin"
+  mkdir -p "$FAKE" "$SELF_DIR/app/target/bin" "$SELF_DIR/data"
+
+  # 假 curl：按 URL 返回状态码（模式由 PB_FAKE_CURL 决定）
+  cat > "$FAKE/curl" <<'CURL_EOF'
+#!/bin/sh
+url=""
+for a in "$@"; do url="$a"; done
+case "$url" in
+  */beam)                 code=401 ;;
+  *"/?t="*)               code=200 ;;
+  *)                      code=401 ;;
+esac
+case "${PB_FAKE_CURL:-good}" in
+  beam200)  case "$url" in */beam) code=200 ;; esac ;;
+  bare200)  case "$url" in *"/?t="*) code=200 ;; *) code=200 ;; esac ;;
+esac
+printf '%s' "$code"
+CURL_EOF
+  # 假 pgrep：PB_FAKE_PGREP=none ⇒ 找不到进程
+  cat > "$FAKE/pgrep" <<'PGREP_EOF'
+#!/bin/sh
+[ "${PB_FAKE_PGREP:-yes}" = "none" ] && exit 1
+printf '1234\n'
+PGREP_EOF
+  # 假 ss：PB_FAKE_SS=none ⇒ 端口没在听
+  cat > "$FAKE/ss" <<'SS_EOF'
+#!/bin/sh
+[ "${PB_FAKE_SS:-yes}" = "none" ] && exit 0
+printf 'LISTEN 0 128 0.0.0.0:%s 0.0.0.0:*\n' "${PB_FAKE_PORT:-12348}"
+SS_EOF
+  # 假 id：PB_FAKE_ID=1000 ⇒ 非 root
+  cat > "$FAKE/id" <<'ID_EOF'
+#!/bin/sh
+[ "${1:-}" = "-u" ] && printf '%s\n' "${PB_FAKE_ID:-0}" && exit 0
+printf 'uid=%s\n' "${PB_FAKE_ID:-0}"
+ID_EOF
+  chmod +x "$FAKE"/*
+
+  # 假设备：二进制在（按本机架构）+ 令牌文件
+  case "$(uname -m)" in
+    x86_64|amd64) FAKE_BIN="p2pcweb-linux-amd64" ;;
+    *)           FAKE_BIN="p2pcweb-linux-arm64" ;;
+  esac
+  : > "$SELF_DIR/app/target/bin/$FAKE_BIN"
+  printf 'faketoken\n' > "$SELF_DIR/data/.p2pcweb_token"
+
+  fail=0
+  # ① 一切正常 ⇒ 退出码 0
+  out=$(PB_CMD_CURL="$FAKE/curl" PB_CMD_PGREP="$FAKE/pgrep" PB_CMD_SS="$FAKE/ss" \
+        PB_CMD_ID="$FAKE/id" PB_APP_ROOT="$SELF_DIR/app" PB_DATA_PATH="$SELF_DIR/data" \
+        bash "$0" "$SELF_DIR/data" 2>&1)
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "  ✗ 正常态应退出 0，实际 $rc" >&2; printf '%s\n' "$out" | sed 's/^/      /' >&2; fail=1
+  else
+    echo "  ✓ 正常态 ⇒ 退出码 0（判据不会无脑报红）"
+  fi
+
+  # ②③④⑤⑥⑥ 每条判据各驱动一次「异常态」⇒ 必须判红且退出码 1
+  for case_spec in \
+    "进程不在:PB_FAKE_PGREP=none" \
+    "端口没在听:PB_FAKE_SS=none" \
+    "裸请求被放行:PB_FAKE_CURL=bare200" \
+    "/beam 未登录却返回 200:PB_FAKE_CURL=beam200"; do
+    label="${case_spec%%:*}"
+    envs="${case_spec#*:}"
+    env_val="${envs#*=}"
+    env_key="${envs%%=*}"
+    out=$(env "${env_key}=${env_val}" \
+          PB_CMD_CURL="$FAKE/curl" PB_CMD_PGREP="$FAKE/pgrep" PB_CMD_SS="$FAKE/ss" \
+          PB_CMD_ID="$FAKE/id" PB_APP_ROOT="$SELF_DIR/app" PB_DATA_PATH="$SELF_DIR/data" \
+          bash "$0" "$SELF_DIR/data" 2>&1)
+    rc=$?
+    if [ "$rc" -ne 1 ]; then
+      echo "  ✗ 「${label}」应判红（退出码 1），实际 $rc" >&2
+      printf '%s\n' "$out" | sed 's/^/      /' >&2
+      fail=1
+    else
+      echo "  ✓ 「${label}」⇒ 判红且退出码 1"
+    fi
+  done
+
+  # ④ 令牌文件为空 ⇒ 判红
+  : > "$SELF_DIR/data/.p2pcweb_token"
+  out=$(PB_CMD_CURL="$FAKE/curl" PB_CMD_PGREP="$FAKE/pgrep" PB_CMD_SS="$FAKE/ss" \
+        PB_CMD_ID="$FAKE/id" PB_APP_ROOT="$SELF_DIR/app" PB_DATA_PATH="$SELF_DIR/data" \
+        bash "$0" "$SELF_DIR/data" 2>&1)
+  rc=$?
+  if [ "$rc" -ne 1 ]; then
+    echo "  ✗ 「令牌文件为空」应判红，实际 $rc" >&2; fail=1
+  else
+    echo "  ✓ 「令牌文件为空」⇒ 判红且退出码 1"
+  fi
+  printf 'faketoken\n' > "$SELF_DIR/data/.p2pcweb_token"
+
+  # ⑦ 非 root ⇒ 退出码 2（无法判定 ≠ 通过）
+  out=$(PB_CMD_CURL="$FAKE/curl" PB_CMD_PGREP="$FAKE/pgrep" PB_CMD_SS="$FAKE/ss" \
+        PB_CMD_ID="$FAKE/id" PB_FAKE_ID=1000 PB_APP_ROOT="$SELF_DIR/app" \
+        PB_DATA_PATH="$SELF_DIR/data" bash "$0" "$SELF_DIR/data" 2>&1)
+  rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "  ✗ 非 root 应退出 2（无法判定），实际 $rc" >&2; fail=1
+  else
+    echo "  ✓ 非 root ⇒ 退出码 2（无法判定 ≠ 通过）"
+  fi
+
+  if [ "$fail" -ne 0 ]; then
+    echo "✗ 自证失败：至少有一条判据没有区分力" >&2
+    exit 1
+  fi
+  echo "✓ 自证：正常态绿、每条异常态都红、非 root 报无法判定 ⇒ 判据有牙齿"
+  exit 0
+fi
+
 echo "══ fnOS /beam 生命周期验收 ══"
 echo "应用根: ${APP_ROOT}"
 echo "数据目录: ${DATA_DIR:-（未确定）}"
 echo "p2pcweb 端口: ${BEAM_PORT}"
 
 # ── 前置：必须 root ────────────────────────────────────────────────────
-if [ "$(id -u)" != "0" ]; then
-  record skip "前置" "非 root（uid=$(id -u)）——正式 fpk 安装路径与进程检查都需要 root"
+if [ "$(${CMD_ID} -u)" != "0" ]; then
+  record skip "前置" "非 root（uid=$(${CMD_ID} -u)）——正式 fpk 安装路径与进程检查都需要 root"
   echo
   echo "结论: 前置不满足，无法判定（不是「通过」）"
   printf '%s\n' "${RESULTS[@]}"
@@ -86,15 +220,15 @@ else
   record no "p2pcweb 二进制" "缺失 ${BIN}（正式包应随包携带）"
 fi
 
-PIDS="$(pgrep -f p2pcweb 2>/dev/null | tr '\n' ' ')"
+PIDS="$(${CMD_PGREP} -f p2pcweb 2>/dev/null | tr '\n' ' ')"
 if [ -n "${PIDS}" ]; then
   record ok "p2pcweb 进程" "运行中 (pid: ${PIDS})"
 else
   record no "p2pcweb 进程" "未运行——**自起**失败（由生命周期脚本拉起，不该靠手工）"
 fi
 
-if command -v ss >/dev/null 2>&1; then
-  if ss -ltn 2>/dev/null | grep -q ":${BEAM_PORT}\b"; then
+if command -v "${CMD_SS}" >/dev/null 2>&1; then
+  if ${CMD_SS} -ltn 2>/dev/null | grep -q ":${BEAM_PORT}\b"; then
     record ok "p2pcweb 监听" "端口 ${BEAM_PORT} 在听"
   else
     record no "p2pcweb 监听" "端口 ${BEAM_PORT} 未监听"
@@ -113,9 +247,9 @@ fi
 # ── 判据 2：/beam 入口 ─────────────────────────────────────────────────
 echo
 echo "── 判据 2：/beam 入口行为 ──"
-if command -v curl >/dev/null 2>&1; then
+if command -v "${CMD_CURL}" >/dev/null 2>&1; then
   # 未登录 → 401（文字提示），不是 302
-  CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 \
+  CODE="$(${CMD_CURL} -s -o /dev/null -w '%{http_code}' --max-time 8 \
           "http://127.0.0.1:${SERVER_PORT}/beam" 2>/dev/null || echo 000)"
   if [ "${CODE}" = "401" ]; then
     record ok "/beam 未登录" "401（提示先登录）"
@@ -125,9 +259,9 @@ if command -v curl >/dev/null 2>&1; then
   # p2pcweb 自身令牌门禁：裸请求应被拒（不是 200）
   if [ -n "${TOKEN_FILE}" ] && [ -s "${TOKEN_FILE}" ]; then
     TOK="$(tr -d '[:space:]' < "${TOKEN_FILE}")"
-    PCODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 \
+    PCODE="$(${CMD_CURL} -s -o /dev/null -w '%{http_code}' --max-time 8 \
              "http://127.0.0.1:${BEAM_PORT}/" 2>/dev/null || echo 000)"
-    RCODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 \
+    RCODE="$(${CMD_CURL} -s -o /dev/null -w '%{http_code}' --max-time 8 \
              "http://127.0.0.1:${BEAM_PORT}/?t=${TOK}" 2>/dev/null || echo 000)"
     if [ "${PCODE}" != "200" ]; then
       record ok "p2pcweb 令牌门禁" "裸请求 ${PCODE}（非 200）"
