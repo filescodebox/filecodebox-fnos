@@ -129,12 +129,21 @@ for arch in amd64 arm64; do
   if [ -z "$PB_SRC" ]; then
     PB_SRC="$(mktemp -d)/server"
     echo "    检出 server ${PB_SERVER_REF} 源码"
-    if ! git clone -q --depth 1 --branch "$PB_SERVER_REF" \
-         https://github.com/pigeonbox/server.git "$PB_SRC" 2>/dev/null; then
-      echo "    ✗ server ${PB_SERVER_REF} 源码检出失败——pb 优雅降级(包内无 pb)"
-      _pb_ok=0
-      break
-    fi
+      _pb_try=0
+      while [ "$_pb_try" -lt 10 ]; do
+        _pb_try=$((_pb_try + 1))
+        if git clone -q --depth 1 --branch "$PB_SERVER_REF" \
+             https://github.com/pigeonbox/server.git "$PB_SRC" 2>/dev/null; then
+          break
+        fi
+        echo "    … server ${PB_SERVER_REF} 源码尚未可见（第 ${_pb_try} 次），3s 后重试"
+        sleep 3
+      done
+      if [ ! -d "$PB_SRC/.git" ]; then
+        echo "    ✗ server ${PB_SERVER_REF} 源码检出失败——pb 优雅降级(包内无 pb)"
+        _pb_ok=0
+        break
+      fi
   fi
   echo "    GOOS=linux GOARCH=${arch}"
   if ! (cd "$PB_SRC" && CGO_ENABLED=0 GOWORK=off GOOS=linux GOARCH="${arch}" \
