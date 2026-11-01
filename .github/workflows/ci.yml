@@ -90,6 +90,10 @@ jobs:
       # 靠人工装包后才发现。
       # ⇒ 断言：打包目录与 fpk 内都有 pb 双架构二进制，且**真的能执行**
       # （架构错会 exec format error ⇒ 只判「文件存在」不够）。
+      # /beam 生命周期验收脚本是 **fnos#115 关单的证据工具** ⇒ 判据必须能判红
+      # ⇒ 用假设备（假 curl/pgrep/ss/id）驱动脚本自己 ⇒ 正常态绿、每条异常态都红。
+      - name: /beam 验收脚本判据自证（假设备必须逐条判红）
+        run: bash scripts/verify-beam-lifecycle.sh --selfcheck
       - name: pb CLI 随包门禁（双架构 + 可执行）
         if: always()
         run: bash scripts/check-pb-in-fpk.sh
