@@ -155,11 +155,40 @@ start_p2pcweb() {
     chmod +x "$P2PCWEB_BIN" 2>/dev/null || true
     local beam_port="${PB_P2PCWEB_PORT:-12348}"
     log_msg "Starting p2pcweb on 0.0.0.0:${beam_port} ..."
+    # ⚠️ 必须显式给 **--config-file**：p2pcweb 的配置默认落 os.UserConfigDir()
+    #   （XDG_CONFIG_HOME 或 $HOME/.config）⇒ fnOS 上它以**包用户**跑而 HOME 继承自
+    #   root ⇒ 配置落到 /root/.config ⇒ **包用户写不了**
+    #   ⇒ 用户在 UI 里填的 Box 地址/Key 存不住（保存失败: 配置路径不可用）。
+    #   ⇒ 落数据卷：可写 + 跨重启稳定（与 --token-file / --out 同一卷）。
     "$P2PCWEB_BIN" --addr "0.0.0.0:${beam_port}" \
         --token-file "${PB_DATA_PATH}/.p2pcweb_token" \
+        --config-file "${PB_DATA_PATH}/p2pcweb.json" \
         --out "${PB_DATA_PATH}" \
         --no-open >> "${LOG_FILE}" 2>&1 &
     printf "%s" "$!" > "${P2PCWEB_PID_FILE}"
+}
+
+# PigeonBeam 出厂预接线（roadmap §3.1 的真实缺口）：把 Box 地址 + 一把专用
+# API Key 预置进 p2pcweb ⇒ 用户打开 Beam 的「文件柜」tab **不再需要手填**。
+# 失败**不阻断**（优雅降级）：Beam 退化为「手填」旧行为，Box 照常可用。
+prewire_beam_box() {
+    local script="${APP_ROOT}/cmd/prewire_beam_box"
+    if [ ! -f "$script" ]; then
+        log_msg "beam prewire: script missing (${script}), skip"
+        return 0
+    fi
+    # 等 p2pcweb 写出令牌文件（它自持写入，首启可能慢一拍）
+    local waited=0
+    while [ ! -s "${PB_DATA_PATH}/.p2pcweb_token" ] && [ "$waited" -lt 10 ]; do
+        sleep 1
+        waited=$((waited + 1))
+    done
+    local out
+    out="$(bash "$script" 2>&1)"
+    if [ -n "$out" ]; then
+        log_msg "beam prewire: $(printf '%s' "$out" | tr '\n' ' ')"
+    fi
+    return 0
 }
 
 stop_p2pcweb() {
@@ -285,6 +314,8 @@ start_process() {
     start_watchdog
     # PigeonBeam 网页客户端随主服务拉起(A2;失败不阻断主服务)
     start_p2pcweb
+    # 出厂预接线:Box 地址 + 专用 API Key 预置给 Beam（失败不阻断）
+    prewire_beam_box
     return 0
 }
 
